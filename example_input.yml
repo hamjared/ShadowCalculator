@@ -30,4 +30,4 @@ areas:  # Areas to analyze for shadow coverage
     center: [8, 2]  # meters from wall center
     width: 4        # meters
     height: 2       # meters
-    angle: 45       # degrees clockwise from north
+    angle: 0       # degrees clockwise from north

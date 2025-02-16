@@ -650,34 +650,15 @@ def main():
             print_debug(f"Args: {args}")
             print_debug(f"Plot flag: {args.plot}")
             
-            # Areas are defined in meters, wall dimensions are already in meters
-            print_debug(f"Wall width in meters: {width_meters}")
-            print_debug(f"Shadow length in meters: {shadow_length}")
-            
-            # Define areas in meters
-            areas = [
-                {
-                    'name': 'Picnic Area',
-                    'shape': 'rectangle',
-                    'center': [5, 5],  # meters
-                    'width': 3,        # meters
-                    'height': 3,       # meters
-                    'angle': 0
-                },
-                {
-                    'name': 'Garden Bed',
-                    'shape': 'rectangle',
-                    'center': [8, 2],  # meters
-                    'width': 4,        # meters
-                    'height': 2,       # meters
-                    'angle': 45
-                }
-            ]
-            
-            print_debug(f"Areas in meters: {areas}")
-            
             # Plot shadow with areas using already-converted dimensions
             plt.close('all')  # Close any existing plots
+            
+            # Get areas from input file if it exists
+            areas = []
+            if args.input_file:
+                areas = InputFileParser.get_areas_from_input_file(args.input_file)
+                print_debug(f"Areas from input file: {areas}")
+            
             fig, ax = plot_shadow(width_meters, wall_angle, shadow_length, shadow_width, 
                                 shadow_angle, calc_time, areas=areas, show=True, wall_height=height_meters)
             print_debug("About to show plot...")

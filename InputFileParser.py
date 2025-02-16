@@ -259,3 +259,84 @@ class InputFileParser:
         
         print_debug(f"Final parsed data: {args}")
         return args
+    
+    @staticmethod
+    def get_areas_from_input_file(file_path: str) -> List[Dict[str, Any]]:
+        """
+        Get areas from input file.
+        
+        Args:
+            file_path: Path to input file
+            
+        Returns:
+            List of area dictionaries
+        """
+        try:
+            with open(file_path, 'r') as f:
+                data = yaml.safe_load(f)
+            
+            if not data or 'areas' not in data:
+                print_debug("No areas found in input file")
+                return []
+                
+            areas = []
+            for area in data['areas']:
+                if not isinstance(area, dict):
+                    print_debug(f"Skipping invalid area: {area}")
+                    continue
+                    
+                required_fields = ['name', 'shape', 'center', 'width', 'height']
+                if not all(field in area for field in required_fields):
+                    print_debug(f"Area missing required fields: {area}")
+                    continue
+                    
+                # Convert area to meters if units are specified
+                try:
+                    center = area['center']
+                    if isinstance(center[0], str):
+                        center_x = float(center[0].split()[0])
+                        if len(center[0].split()) > 1 and center[0].split()[1].lower() == 'feet':
+                            center_x *= 0.3048
+                    else:
+                        center_x = float(center[0])
+                        
+                    if isinstance(center[1], str):
+                        center_y = float(center[1].split()[0])
+                        if len(center[1].split()) > 1 and center[1].split()[1].lower() == 'feet':
+                            center_y *= 0.3048
+                    else:
+                        center_y = float(center[1])
+                        
+                    width = area['width']
+                    if isinstance(width, str):
+                        width_val = float(width.split()[0])
+                        if len(width.split()) > 1 and width.split()[1].lower() == 'feet':
+                            width_val *= 0.3048
+                    else:
+                        width_val = float(width)
+                        
+                    height = area['height']
+                    if isinstance(height, str):
+                        height_val = float(height.split()[0])
+                        if len(height.split()) > 1 and height.split()[1].lower() == 'feet':
+                            height_val *= 0.3048
+                    else:
+                        height_val = float(height)
+                        
+                    areas.append({
+                        'name': area['name'],
+                        'shape': area['shape'],
+                        'center': [center_x, center_y],
+                        'width': width_val,
+                        'height': height_val,
+                        'angle': float(area.get('angle', 0))
+                    })
+                except (ValueError, IndexError) as e:
+                    print_debug(f"Error parsing area {area['name']}: {e}")
+                    continue
+                    
+            return areas
+            
+        except Exception as e:
+            print_debug(f"Error reading areas from file: {e}")
+            return []

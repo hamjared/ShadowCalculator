@@ -1,0 +1,19 @@
+# Example input file for shadow calculator
+# All measurements can include units (e.g., "10 feet", "3 meters")
+
+wall:
+  height: "10 feet"
+  width: "20 feet"
+  angle: 90  # degrees from true north (clockwise)
+
+location: "Denver, CO"  # Can be address or "latitude,longitude"
+
+time:
+  start: "08:00"  # Can be HH:MM, YYYY-MM-DD, or YYYY-MM-DD HH:MM
+  end: "16:00"    # Optional, if not provided only calculates for start time
+  interval: "1h"  # Optional, default is "30m"
+
+visualization:
+  plot: true      # Show static plot
+  animate: false  # Show animation for time range
+  save_animation: "shadow_movement.gif"  # Optional, save animation to file

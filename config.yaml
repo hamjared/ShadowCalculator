@@ -1,0 +1,11 @@
+# Shadow Calculator Configuration
+
+# Default output units for measurements
+# Supported units: meters (m), feet (ft), inches (in), centimeters (cm)
+output_units:
+  default: meters  # Default unit if none specified
+  height: feet    # Unit for wall height output
+  shadow: meters  # Unit for shadow length output
+
+# Default location (Denver, CO)
+default_location: "39.7392,-104.9903"

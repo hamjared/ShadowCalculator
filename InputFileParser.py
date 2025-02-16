@@ -118,12 +118,7 @@ class InputFileParser:
             if not isinstance(area['center'], list) or len(area['center']) != 2:
                 raise ValueError("Area center must be [x, y] coordinates")
                 
-            try:
-                float(area['width'])
-                float(area['height'])
-                float(area.get('angle', 0))  # Angle is optional, defaults to 0
-            except (ValueError, TypeError):
-                raise ValueError("Area dimensions and angle must be numbers")
+
     
     @classmethod
     def validate_input_file(cls, input_data: Dict[str, Any]) -> Dict[str, Any]:

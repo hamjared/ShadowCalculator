@@ -3,31 +3,24 @@
 
 wall:
   height: "22 feet"
-  width: "20 feet"
+  width: "15 feet"
   angle: 90  # degrees from true north (clockwise)
 
 location: "40.512043, -104.966719"  # Can be address or "latitude,longitude"
 
 time:
-  start: "15:00"  # Can be HH:MM, YYYY-MM-DD, or YYYY-MM-DD HH:MM
-  interval: "1h"  # Optional, default is "30m"
+  start: "15:00"  # Time to calculate shadow for (24-hour format)
+  interval: "60m"  # Minutes between calculations for animation
 
 visualization:
-  plot: True      # Show static plot
-  animate: False  # Show animation for time range
-  save_animation: "shadow_movement.gif"  # Optional, save animation to file
+  plot: true      # Show plot
+  animate: false  # Create animation
+  save_animation: "shadow_movement.gif"  # Save animation to file
 
-areas:  # Areas to analyze for shadow coverage
-  - name: "Picnic Area"
+areas:
+  - name: "Deck"
     shape: "rectangle"
-    center: [5, 5]  # meters from wall center
-    width: 3        # meters
-    height: 3       # meters
-    angle: 0        # degrees clockwise from north
-  
-  - name: "Garden Bed"
-    shape: "rectangle"
-    center: [8, 2]  # meters from wall center
-    width: 4        # meters
-    height: 2       # meters
-    angle: 0       # degrees clockwise from north
+    center: ["0 feet", "10 feet"]  # [x, y] coordinates from wall center
+    width: "15 feet"
+    height: "20 feet"
+    angle: 0  # degrees rotation

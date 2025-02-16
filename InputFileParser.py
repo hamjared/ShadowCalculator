@@ -6,12 +6,64 @@ Handles loading and validating YAML input files.
 import yaml
 from typing import Dict, Any, List
 from pathlib import Path
+from datetime import datetime
+import re
 
 def print_debug(message: str) -> None:
     print(f"DEBUG: {message}")
 
 class InputFileParser:
     """Parser for shadow calculator input files."""
+    
+    @staticmethod
+    def parse_time(time_str: str) -> datetime:
+        """
+        Parse time string into datetime object.
+        
+        Supports formats:
+        - HH:MM (e.g., "15:00")
+        - YYYY-MM-DD HH:MM (e.g., "2025-02-16 15:00")
+        - YYYY-MM-DDTHH:MM:SS-ZZ:ZZ (e.g., "2025-02-16T15:00:00-07:00")
+        
+        Args:
+            time_str: Time string to parse
+            
+        Returns:
+            datetime object
+            
+        Raises:
+            ValueError if time string is invalid
+        """
+        # Try ISO format first (YYYY-MM-DDTHH:MM:SS-ZZ:ZZ)
+        try:
+            return datetime.fromisoformat(time_str)
+        except ValueError:
+            pass
+            
+        # Try YYYY-MM-DD HH:MM format
+        try:
+            return datetime.strptime(time_str, "%Y-%m-%d %H:%M")
+        except ValueError:
+            pass
+            
+        # Try HH:MM format
+        try:
+            time_match = re.match(r"^(\d{1,2}):(\d{2})$", time_str)
+            if time_match:
+                hour, minute = map(int, time_match.groups())
+                if 0 <= hour <= 23 and 0 <= minute <= 59:
+                    # Use current date with specified time
+                    now = datetime.now()
+                    return now.replace(hour=hour, minute=minute)
+        except ValueError:
+            pass
+            
+        raise ValueError(
+            "Invalid time format. Supported formats:\n"
+            "- HH:MM (e.g., '15:00')\n"
+            "- YYYY-MM-DD HH:MM (e.g., '2025-02-16 15:00')\n"
+            "- YYYY-MM-DDTHH:MM:SS-ZZ:ZZ (e.g., '2025-02-16T15:00:00-07:00')"
+        )
     
     @staticmethod
     def validate_wall_section(wall_data: Dict[str, Any]) -> None:
@@ -52,6 +104,13 @@ class InputFileParser:
         """
         if not isinstance(time_data, dict):
             raise ValueError("Time section must be a dictionary")
+            
+        # Validate start time format
+        if 'start' in time_data:
+            try:
+                InputFileParser.parse_time(time_data['start'])
+            except ValueError as e:
+                raise ValueError(f"Invalid start time: {e}")
             
         # Validate interval format if present
         if 'interval' in time_data:
@@ -118,8 +177,6 @@ class InputFileParser:
             if not isinstance(area['center'], list) or len(area['center']) != 2:
                 raise ValueError("Area center must be [x, y] coordinates")
                 
-
-    
     @classmethod
     def validate_input_file(cls, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """

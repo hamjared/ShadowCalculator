@@ -22,6 +22,7 @@ from colorama import Fore, Style
 colorama.init()
 import sys
 import codecs
+import re
 
 # Set up UTF-8 encoding for stdout
 if sys.stdout.encoding != 'utf-8':
@@ -239,51 +240,51 @@ def get_coordinates(location: str) -> Tuple[float, float, str]:
 
 def parse_time(time_str: str) -> datetime:
     """
-    Parse a time string into a datetime object.
-    Accepts formats:
-    - HH:MM
-    - YYYY-MM-DD
-    - YYYY-MM-DD HH:MM
-    If only time is provided, uses current date.
-    If only date is provided, uses 00:00 as time.
-    All times are interpreted in the local timezone.
+    Parse time string into datetime object.
     
-    Args:
-        time_str: Time string in one of the supported formats
-        
-    Returns:
-        datetime: Parsed datetime object with timezone information
+    Supports formats:
+    - HH:MM (e.g., "15:00")
+    - YYYY-MM-DD HH:MM (e.g., "2025-02-16 15:00")
+    - YYYY-MM-DDTHH:MM:SS-ZZ:ZZ (e.g., "2025-02-16T15:00:00-07:00")
+    
+    If no timezone is specified, assumes local time (MST/MDT).
     """
     try:
-        now = datetime.now()
+        # Try ISO format first (YYYY-MM-DDTHH:MM:SS-ZZ:ZZ)
+        dt = datetime.fromisoformat(time_str)
+        if dt.tzinfo is None:
+            # If no timezone provided, assume MST/MDT (UTC-7)
+            dt = dt.replace(tzinfo=timezone(timedelta(hours=-7)))
+        return dt
+    except ValueError:
+        pass
         
-        # Try parsing as time only (HH:MM)
-        try:
-            time = datetime.strptime(time_str, "%H:%M").time()
-            dt = datetime.combine(now.date(), time)
-            # Add timezone offset for Denver (UTC-7)
-            return dt.replace(tzinfo=timezone(timedelta(hours=-7)))
-        except ValueError:
-            pass
+    try:
+        # Try YYYY-MM-DD HH:MM format
+        dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M")
+        # Add MST/MDT timezone (UTC-7)
+        return dt.replace(tzinfo=timezone(timedelta(hours=-7)))
+    except ValueError:
+        pass
         
-        # Try parsing as date only (YYYY-MM-DD)
-        try:
-            date = datetime.strptime(time_str, "%Y-%m-%d").date()
-            dt = datetime.combine(date, datetime.min.time())
-            return dt.replace(tzinfo=timezone(timedelta(hours=-7)))
-        except ValueError:
-            pass
+    try:
+        # Try HH:MM format
+        time_match = re.match(r"^(\d{1,2}):(\d{2})$", time_str)
+        if time_match:
+            hour, minute = map(int, time_match.groups())
+            if 0 <= hour <= 23 and 0 <= minute <= 59:
+                # Use current date with specified time
+                now = datetime.now(timezone(timedelta(hours=-7)))
+                return now.replace(hour=hour, minute=minute)
+    except ValueError:
+        pass
         
-        # Try parsing as full datetime (YYYY-MM-DD HH:MM)
-        try:
-            dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M")
-            return dt.replace(tzinfo=timezone(timedelta(hours=-7)))
-        except ValueError:
-            pass
-        
-        raise ValueError(f"Invalid time format: {time_str}")
-    except Exception as e:
-        raise ValueError(f"Error parsing time: {str(e)}")
+    raise ValueError(
+        "Invalid time format. Supported formats:\n"
+        "- HH:MM (e.g., '15:00')\n"
+        "- YYYY-MM-DD HH:MM (e.g., '2025-02-16 15:00')\n"
+        "- YYYY-MM-DDTHH:MM:SS-ZZ:ZZ (e.g., '2025-02-16T15:00:00-07:00')"
+    )
 
 def parse_duration(duration_str: str) -> timedelta:
     """
@@ -486,7 +487,7 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
     if time:
         title = f"Shadow at {time.strftime('%Y-%m-%d %H:%M')}\n"
         title += f"Wall width: {plot_wall_width:.1f} {plot_unit}\n"
-        title += f"Sun azimuth: {sun_angle:.1f}°, Shadow angle: {shadow_angle:.1f}°"
+        title += f"Sun azimuth: {(sun_angle):.1f}°, Shadow angle: {shadow_angle:.1f}°"
         ax.set_title(title)
     
     return fig, ax
@@ -618,7 +619,14 @@ def main():
         lat, lon, location_name = get_coordinates(args.location)
         
         # Calculate shadow for single time
-        calc_time = parse_time(args.start_time) if args.start_time else datetime.now()
+        calc_time = None
+        if args.start_time:
+            try:
+                calc_time = parse_time(args.start_time)
+            except ValueError as e:
+                print(f"Error parsing time: {e}")
+                return
+        
         shadow_result = calculate_shadow_length(height_meters, width_meters, wall_angle, lat, lon, calc_time)
         
         if shadow_result is None:

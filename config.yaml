@@ -5,7 +5,7 @@
 output_units:
   default: meters  # Default unit if none specified
   height: feet    # Unit for wall height output
-  shadow: meters  # Unit for shadow length output
+  shadow: feet  # Unit for shadow length output
 
 # Default location (Denver, CO)
 default_location: "39.7392,-104.9903"

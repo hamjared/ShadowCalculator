@@ -2,7 +2,7 @@ import astral
 from astral.sun import sun, elevation, azimuth
 from datetime import datetime, timedelta
 import math
-from typing import Tuple, Dict, List
+from typing import Tuple, Dict, List, Any
 import argparse
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderUnavailable
@@ -16,6 +16,18 @@ from matplotlib.animation import FuncAnimation
 from InputFileParser import InputFileParser
 from UnitConverter import UnitConverter
 from datetime import timezone, timedelta
+from ShadowAnalyzer import ShadowAnalyzer
+import colorama
+from colorama import Fore, Style
+colorama.init()
+import sys
+import codecs
+
+# Set up UTF-8 encoding for stdout
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 # Dictionary of conversion factors to meters
 UNIT_CONVERSIONS = UnitConverter.UNIT_CONVERSIONS
@@ -88,7 +100,7 @@ def calculate_shadow_length(wall_height: float, wall_width: float, wall_angle: f
     solar_elevation = elevation(observer=loc.observer, dateandtime=date_time)
     solar_azimuth = azimuth(observer=loc.observer, dateandtime=date_time)
     
-    print(f"DEBUG: Solar azimuth at {date_time}: {solar_azimuth}°")  # Debug print
+    print_debug(f"Solar azimuth at {date_time}: {solar_azimuth}°")  # Debug print
     
     # Convert angles to radians
     elevation_rad = math.radians(solar_elevation)
@@ -305,21 +317,27 @@ def parse_duration(duration_str: str) -> timedelta:
 
 def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float, 
                 shadow_width: float, shadow_angle: float, time: datetime = None,
-                show: bool = True) -> tuple:
+                areas: List[Dict[str, Any]] = None, show: bool = True) -> tuple:
     """
     Plot the wall and its shadow.
     
     Args:
         wall_width: Width of the wall in meters
         wall_angle: Wall angle in degrees from true north (clockwise)
-        shadow_length: Length of the shadow in meters
+        shadow_length: Length of shadow in meters
         shadow_width: Width of the shadow in meters
         shadow_angle: Shadow angle in degrees from true north (clockwise)
         time: Optional datetime for plot title
+        areas: Optional list of areas to analyze for shadow coverage
         show: Whether to show the plot immediately
     """
-    # Create figure and axis
-    fig, ax = plt.subplots(figsize=(10, 10))
+    print_debug(f"plot_shadow called with areas: {areas}")
+    
+    # Create figure and axis with extra space for legend
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    # Adjust layout to make room for legend
+    plt.subplots_adjust(right=0.85)
     
     # Convert angles to radians (compass coordinates: clockwise from north)
     wall_rad = np.radians(wall_angle)
@@ -386,6 +404,34 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
     for direction, (x, y) in compass_points.items():
         ax.text(x, y, direction, ha='center', va='center')
     
+    # Add areas and analyze shadow coverage if provided
+    if areas:
+        print_debug("Creating ShadowAnalyzer")
+        analyzer = ShadowAnalyzer()
+        for area in areas:
+            print_debug(f"Adding area: {area}")
+            analyzer.add_rectangular_area(
+                name=area['name'],
+                center=area['center'],
+                width=area['width'],
+                height=area['height'],
+                angle=area.get('angle', 0)
+            )
+        
+        # Calculate and display coverage
+        print_debug("Calculating coverage")
+        coverage = analyzer.analyze_shadow_coverage(
+            wall_width=wall_width,
+            wall_angle=wall_angle,
+            shadow_length=shadow_length,
+            shadow_angle=shadow_angle
+        )
+        print_debug(f"Coverage results: {coverage}")
+        
+        # Plot areas with coverage information
+        print_debug("Plotting areas")
+        analyzer.plot_areas(ax, coverage)
+    
     # Set title if time provided
     if time:
         title = f"Shadow at {time.strftime('%Y-%m-%d %H:%M')}\n"
@@ -414,7 +460,7 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
     return fig, ax
 
 def create_shadow_animation(results: list, wall_width: float, wall_angle: float, 
-                          output_file: str = None) -> None:
+                          output_file: str = None, areas: List[Dict[str, Any]] = None) -> None:
     """
     Create an animation of shadow movement over time.
     
@@ -423,6 +469,7 @@ def create_shadow_animation(results: list, wall_width: float, wall_angle: float,
         wall_width: Width of the wall in meters
         wall_angle: Wall angle in degrees from true north
         output_file: Optional path to save animation file
+        areas: Optional list of areas to analyze for shadow coverage
     """
     # Set up the figure and axis
     fig, ax = plt.subplots(figsize=(10, 10))
@@ -435,7 +482,7 @@ def create_shadow_animation(results: list, wall_width: float, wall_angle: float,
         
         # Plot shadow for this frame
         plot_shadow(wall_width, wall_angle, shadow_length, shadow_width, 
-                   shadow_angle, time, show=False)
+                   shadow_angle, time, areas=areas, show=False)
         
         # Maintain axis properties
         ax.set_aspect('equal')
@@ -455,6 +502,12 @@ def create_shadow_animation(results: list, wall_width: float, wall_angle: float,
         anim.save(output_file, writer='pillow')
     else:
         plt.show()
+
+def print_debug(msg: str) -> None:
+    """Print a debug message with color and write to file."""
+    print(f"{Fore.CYAN}DEBUG: {msg}{Style.RESET_ALL}")
+    with open('debug.log', 'a', encoding='utf-8') as f:
+        f.write(f"DEBUG: {msg}\n")
 
 def main():
     # Load configuration
@@ -486,21 +539,27 @@ def main():
                       help='YAML file containing input parameters')
     parser.add_argument('--config', action='store_true',
                       help='Show current configuration')
+    parser.add_argument('--areas', type=str,
+                      help='YAML file containing areas to analyze for shadow coverage')
     
     args = parser.parse_args()
     
     # Handle input file
     if args.input_file:
         try:
-            input_args = InputFileParser.parse(args.input_file)
+            # Parse input file and get raw data
+            input_data = InputFileParser.load_and_validate(args.input_file)
+            input_args = InputFileParser.convert_to_args(input_data)
+            
             # Update args with input file values, preserving any command-line overrides
             args_dict = vars(args)
             for key, value in input_args.items():
                 if args_dict[key] is None or (isinstance(args_dict[key], bool) and not args_dict[key]):
                     args_dict[key] = value
             args = argparse.Namespace(**args_dict)
+            
         except ValueError as e:
-            print(f"Error: {str(e)}")
+            print(f"Error in input file: {str(e)}")
             return
         
     if args.config:
@@ -576,7 +635,14 @@ def main():
             
             # Create animation if requested
             if args.animate or args.save_animation:
-                create_shadow_animation(results, width_meters, wall_angle, args.save_animation)
+                areas = None
+                if args.areas:
+                    try:
+                        with open(args.areas, 'r') as f:
+                            areas = yaml.safe_load(f)
+                    except Exception as e:
+                        print(f"Error loading areas file: {e}")
+                create_shadow_animation(results, width_meters, wall_angle, args.save_animation, areas)
                 
         else:
             # Calculate shadow for single time
@@ -590,7 +656,7 @@ def main():
             shadow_length, shadow_width, shadow_angle, shadow_area = shadow_result
             
             # Convert measurements to configured output units
-            output_unit = config['output_units'].get('shadow', config['output_units']['default'])
+            output_unit = config.get('output_units', {}).get('shadow', 'meters')
             area_unit = f"sq {output_unit}"
             
             shadow_length_converted = UnitConverter.convert_from_meters(shadow_length, output_unit)
@@ -608,8 +674,34 @@ def main():
             
             # Show plot if requested
             if args.plot:
+                # Convert areas from meters to output units
+                output_unit = config.get('output_units', {}).get('shadow', 'meters')
+                conversion_factor = UNIT_CONVERSIONS[output_unit]
+                
+                areas = [
+                    {
+                        'name': 'Picnic Area',
+                        'shape': 'rectangle',
+                        'center': [x * conversion_factor for x in [5, 5]],
+                        'width': 3 * conversion_factor,
+                        'height': 3 * conversion_factor,
+                        'angle': 0
+                    },
+                    {
+                        'name': 'Garden Bed',
+                        'shape': 'rectangle',
+                        'center': [x * conversion_factor for x in [8, 2]],
+                        'width': 4 * conversion_factor,
+                        'height': 2 * conversion_factor,
+                        'angle': 45
+                    }
+                ]
+                
+                print_debug(f"Areas (in {output_unit}): {areas}")
+                
+                # Plot shadow with areas
                 plot_shadow(width_meters, wall_angle, shadow_length, shadow_width, 
-                          shadow_angle, calc_time)
+                          shadow_angle, calc_time, areas=areas)
             
     except ValueError as e:
         print(f"Error: {str(e)}")

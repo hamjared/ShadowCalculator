@@ -317,7 +317,8 @@ def parse_duration(duration_str: str) -> timedelta:
 
 def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float, 
                 shadow_width: float, shadow_angle: float, time: datetime = None,
-                areas: List[Dict[str, Any]] = None, show: bool = True) -> tuple:
+                areas: List[Dict[str, Any]] = None, show: bool = True,
+                wall_height: float = None) -> tuple:
     """
     Plot the wall and its shadow.
     
@@ -330,11 +331,22 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
         time: Optional datetime for plot title
         areas: Optional list of areas to analyze for shadow coverage
         show: Whether to show the plot immediately
+        wall_height: Height of the wall in meters
         
     Returns:
         tuple: (figure, axis) for further customization
     """
     print_debug(f"plot_shadow called with areas: {areas}")
+    
+    # Load config for plot units
+    config = load_config()
+    plot_unit = config.get('output_units', {}).get('plot', 'meters').lower()
+    
+    # Convert all dimensions to plot units if needed
+    conversion_factor = 3.28084 if plot_unit == 'feet' else 1  # meters to feet
+    plot_wall_width = wall_width * conversion_factor
+    plot_shadow_length = shadow_length * conversion_factor
+    plot_wall_height = wall_height * conversion_factor if wall_height is not None else None
     
     # Create figure and axis with extra space for legend
     fig, ax = plt.subplots(figsize=(12, 8))
@@ -349,16 +361,16 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
     # Calculate shadow vertices using compass coordinates
     # In compass coordinates: x = r * sin(theta), y = r * cos(theta)
     vertices = [
-        (-wall_width/2 * np.sin(wall_rad), -wall_width/2 * np.cos(wall_rad)),  # Left wall point
-        (wall_width/2 * np.sin(wall_rad), wall_width/2 * np.cos(wall_rad)),    # Right wall point
-        (wall_width/2 * np.sin(wall_rad) + shadow_length * np.sin(shadow_rad),  # Right shadow point
-         wall_width/2 * np.cos(wall_rad) + shadow_length * np.cos(shadow_rad)),
-        (-wall_width/2 * np.sin(wall_rad) + shadow_length * np.sin(shadow_rad), # Left shadow point
-         -wall_width/2 * np.cos(wall_rad) + shadow_length * np.cos(shadow_rad))
+        (-plot_wall_width/2 * np.sin(wall_rad), -plot_wall_width/2 * np.cos(wall_rad)),  # Left wall point
+        (plot_wall_width/2 * np.sin(wall_rad), plot_wall_width/2 * np.cos(wall_rad)),    # Right wall point
+        (plot_wall_width/2 * np.sin(wall_rad) + plot_shadow_length * np.sin(shadow_rad),  # Right shadow point
+         plot_wall_width/2 * np.cos(wall_rad) + plot_shadow_length * np.cos(shadow_rad)),
+        (-plot_wall_width/2 * np.sin(wall_rad) + plot_shadow_length * np.sin(shadow_rad), # Left shadow point
+         -plot_wall_width/2 * np.cos(wall_rad) + plot_shadow_length * np.cos(shadow_rad))
     ]
     
     # Create patches
-    shadow = Polygon(vertices, color='gray', alpha=0.3, zorder=1)
+    shadow = Polygon(vertices, color='gray', alpha=0.3, zorder=1, label='Shadow')
     ax.add_patch(shadow)
     
     # Create wall line
@@ -368,19 +380,20 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
                           [wall_start[1], wall_end[1]], 
                           color='black', 
                           linewidth=2,
-                          zorder=2)
+                          zorder=2,
+                          label=f'Wall (height: {plot_wall_height:.1f} {plot_unit})')
     ax.add_line(wall_line)
     
     # Add sun position
     sun_angle = (shadow_angle + 180) % 360  # Sun is opposite the shadow
     sun_rad = np.radians(sun_angle)
-    sun_radius = max(shadow_length, wall_width) * 1.2
+    sun_radius = max(plot_shadow_length, plot_wall_width) * 1.2
     sun_x = sun_radius * np.sin(sun_rad)  # Compass coordinates
     sun_y = sun_radius * np.cos(sun_rad)  # Compass coordinates
     
     # Draw sun
     sun = plt.Circle((sun_x, sun_y), radius=sun_radius*0.05, 
-                    color='orange', alpha=0.8, zorder=3)
+                    color='orange', alpha=0.8, zorder=3, label='Sun')
     ax.add_patch(sun)
     
     # Add sun rays
@@ -410,21 +423,27 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
         print_debug("Creating ShadowAnalyzer")
         analyzer = ShadowAnalyzer()
         for area in areas:
-            print_debug(f"Adding area: {area}")
+            # Convert area dimensions to plot units
+            plot_area = area.copy()
+            plot_area['center'] = [x * conversion_factor for x in area['center']]
+            plot_area['width'] = area['width'] * conversion_factor
+            plot_area['height'] = area['height'] * conversion_factor
+            
+            print_debug(f"Adding area: {plot_area}")
             analyzer.add_rectangular_area(
-                name=area['name'],
-                center=area['center'],
-                width=area['width'],
-                height=area['height'],
-                angle=area.get('angle', 0)
+                name=plot_area['name'],
+                center=plot_area['center'],
+                width=plot_area['width'],
+                height=plot_area['height'],
+                angle=plot_area.get('angle', 0)
             )
         
         # Calculate and display coverage
         print_debug("Calculating coverage")
         coverage = analyzer.analyze_shadow_coverage(
-            wall_width=wall_width,
+            wall_width=plot_wall_width,
             wall_angle=wall_angle,
-            shadow_length=shadow_length,
+            shadow_length=plot_shadow_length,
             shadow_angle=shadow_angle
         )
         print_debug(f"Coverage results: {coverage}")
@@ -433,23 +452,40 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
         print_debug("Plotting areas")
         analyzer.plot_areas(ax, coverage)
     
-    # Set equal aspect ratio and limits
+    # Add legend
+    handles, labels = ax.get_legend_handles_labels()
+    
+    # Sort handles and labels to ensure consistent order
+    legend_items = list(zip(handles, labels))
+    legend_items.sort(key=lambda x: x[1])  # Sort by label
+    handles, labels = zip(*legend_items)
+    
+    # Create legend with two columns
+    ax.legend(handles, labels, 
+             loc='upper left', 
+             bbox_to_anchor=(1.05, 1), 
+             borderaxespad=0.,
+             ncol=1,
+             title='Legend',
+             framealpha=0.9)
+    
+    # Add equal aspect ratio and limits
     ax.set_aspect('equal')
-    limit = max(shadow_length, wall_width, sun_radius) * 1.2
+    limit = max(plot_shadow_length, plot_wall_width, sun_radius) * 1.2
     ax.set_xlim(-limit, limit)
     ax.set_ylim(-limit, limit)
     
     # Add grid
     ax.grid(True, linestyle='--', alpha=0.3)
     
-    # Add axes labels
-    ax.set_xlabel('Distance (meters)')
-    ax.set_ylabel('Distance (meters)')
+    # Add axes labels with units
+    ax.set_xlabel(f'Distance ({plot_unit})')
+    ax.set_ylabel(f'Distance ({plot_unit})')
     
     # Set title if time provided
     if time:
         title = f"Shadow at {time.strftime('%Y-%m-%d %H:%M')}\n"
-        title += f"Wall width: {wall_width:.1f} meters\n"
+        title += f"Wall width: {plot_wall_width:.1f} {plot_unit}\n"
         title += f"Sun azimuth: {sun_angle:.1f}°, Shadow angle: {shadow_angle:.1f}°"
         ax.set_title(title)
     
@@ -643,7 +679,7 @@ def main():
             # Plot shadow with areas using already-converted dimensions
             plt.close('all')  # Close any existing plots
             fig, ax = plot_shadow(width_meters, wall_angle, shadow_length, shadow_width, 
-                                shadow_angle, calc_time, areas=areas, show=True)
+                                shadow_angle, calc_time, areas=areas, show=True, wall_height=height_meters)
             print_debug("About to show plot...")
             plt.show()  # Show the plot
             print_debug("Plot shown")

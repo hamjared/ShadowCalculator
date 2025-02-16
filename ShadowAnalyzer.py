@@ -4,6 +4,7 @@ from shapely.geometry import Polygon as ShapelyPolygon
 from shapely.geometry import Point, box
 from typing import List, Tuple, Dict, Optional
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 class ShadowAnalyzer:
     """Class to analyze shadow coverage of defined areas."""
@@ -125,47 +126,35 @@ class ShadowAnalyzer:
             
         return coverage
     
-    def plot_areas(self, ax, coverage: Optional[Dict[str, float]] = None):
-        """
-        Plot the defined areas on the given matplotlib axis.
-        
-        Args:
-            ax: Matplotlib axis to plot on
-            coverage: Optional dictionary of coverage percentages to display
-        """
-        proxies = []
-        labels = []
-        for name, area in self.areas.items():
-            # Create polygon patch with unique color
-            color = plt.cm.Set3(hash(name) % 8)  # Use color from Set3 colormap
-            poly = Polygon(area['corners'], 
-                         facecolor=color, 
-                         alpha=0.5,
-                         edgecolor=color,
-                         linewidth=2,
-                         zorder=4)  # Above shadow but below sun
-            ax.add_patch(poly)
+    def plot_areas(self, ax, coverage: Dict[str, float] = None) -> None:
+        """Plot the areas on the given axis."""
+        if not self.areas:
+            return
             
-            # Add to legend
-            if coverage is not None:
-                label = f"{name} ({coverage[name]:.1f}% covered)"
+        # Create a color map for the areas
+        colors = plt.cm.Set3(np.linspace(0, 1, len(self.areas)))
+        
+        for (name, area), color in zip(self.areas.items(), colors):
+            # Create rectangle patch
+            center = area['center']
+            width = area['width']
+            height = area['height']
+            angle = area.get('angle', 0)
+            
+            # Create rotated rectangle
+            t = mpl.transforms.Affine2D().rotate_deg(angle) + ax.transData
+            rect = plt.Rectangle((center[0] - width/2, center[1] - height/2),
+                               width, height,
+                               angle=0,  # Angle is handled by the transform
+                               color=color,
+                               alpha=0.5,
+                               transform=t,
+                               zorder=2)
+            
+            # Add patch to axis with label including coverage if available
+            if coverage and name in coverage:
+                label = f"{name} ({coverage[name]:.1f}% in shadow)"
             else:
                 label = name
-            
-            # Create proxy artist for legend
-            proxy = plt.Rectangle((0, 0), 1, 1, 
-                                facecolor=color,
-                                alpha=0.5,
-                                edgecolor=color,
-                                linewidth=2)
-            proxies.append(proxy)
-            labels.append(label)
-        
-        ax.legend(proxies, labels, 
-                 loc='upper left',
-                 bbox_to_anchor=(1.02, 1),
-                 borderaxespad=0.,
-                 title='Areas',
-                 framealpha=0.9,
-                 handlelength=1.5,
-                 handletextpad=0.5)
+            rect.set_label(label)
+            ax.add_patch(rect)

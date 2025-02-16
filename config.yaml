@@ -6,6 +6,7 @@ output_units:
   default: meters  # Default unit if none specified
   height: feet    # Unit for wall height output
   shadow: feet  # Unit for shadow length output
+  plot: feet      # Units to use for plot axes (meters or feet)
 
 # Default location (Denver, CO)
 default_location: "39.7392,-104.9903"

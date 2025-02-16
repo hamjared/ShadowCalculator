@@ -330,6 +330,9 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
         time: Optional datetime for plot title
         areas: Optional list of areas to analyze for shadow coverage
         show: Whether to show the plot immediately
+        
+    Returns:
+        tuple: (figure, axis) for further customization
     """
     print_debug(f"plot_shadow called with areas: {areas}")
     
@@ -356,6 +359,7 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
     
     # Create patches
     shadow = Polygon(vertices, color='gray', alpha=0.3, zorder=1)
+    ax.add_patch(shadow)
     
     # Create wall line
     wall_start = vertices[0]  # Left wall point
@@ -365,8 +369,9 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
                           color='black', 
                           linewidth=2,
                           zorder=2)
+    ax.add_line(wall_line)
     
-    # Add sun symbol at solar azimuth
+    # Add sun position
     sun_angle = (shadow_angle + 180) % 360  # Sun is opposite the shadow
     sun_rad = np.radians(sun_angle)
     sun_radius = max(shadow_length, wall_width) * 1.2
@@ -389,22 +394,18 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
                               color='orange', alpha=0.8, zorder=3))
     
     # Add compass directions
-    compass_radius = sun_radius
+    compass_radius = sun_radius * 1.1
     compass_points = {
         'N': (0, compass_radius),
         'S': (0, -compass_radius),
         'E': (compass_radius, 0),
-        'W': (-compass_radius, 0),
-        'NE': (compass_radius * 0.707, compass_radius * 0.707),
-        'SE': (compass_radius * 0.707, -compass_radius * 0.707),
-        'SW': (-compass_radius * 0.707, -compass_radius * 0.707),
-        'NW': (-compass_radius * 0.707, compass_radius * 0.707)
+        'W': (-compass_radius, 0)
     }
     
     for direction, (x, y) in compass_points.items():
-        ax.text(x, y, direction, ha='center', va='center')
+        ax.text(x, y, direction, ha='center', va='center', fontsize=12, fontweight='bold')
     
-    # Add areas and analyze shadow coverage if provided
+    # Add areas if provided
     if areas:
         print_debug("Creating ShadowAnalyzer")
         analyzer = ShadowAnalyzer()
@@ -432,15 +433,9 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
         print_debug("Plotting areas")
         analyzer.plot_areas(ax, coverage)
     
-    # Set title if time provided
-    if time:
-        title = f"Shadow at {time.strftime('%Y-%m-%d %H:%M')}\n"
-        title += f"Sun azimuth: {sun_angle:.1f}°, Shadow angle: {shadow_angle:.1f}°"
-        ax.set_title(title)
-    
     # Set equal aspect ratio and limits
     ax.set_aspect('equal')
-    limit = compass_radius * 1.1
+    limit = max(shadow_length, wall_width, sun_radius) * 1.2
     ax.set_xlim(-limit, limit)
     ax.set_ylim(-limit, limit)
     
@@ -451,12 +446,13 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
     ax.set_xlabel('Distance (meters)')
     ax.set_ylabel('Distance (meters)')
     
-    # Add patches to plot
-    ax.add_patch(shadow)
-    ax.add_line(wall_line)
+    # Set title if time provided
+    if time:
+        title = f"Shadow at {time.strftime('%Y-%m-%d %H:%M')}\n"
+        title += f"Wall width: {wall_width:.1f} meters\n"
+        title += f"Sun azimuth: {sun_angle:.1f}°, Shadow angle: {shadow_angle:.1f}°"
+        ax.set_title(title)
     
-    if show:
-        plt.show()
     return fig, ax
 
 def create_shadow_animation(results: list, wall_width: float, wall_angle: float, 
@@ -510,201 +506,153 @@ def print_debug(msg: str) -> None:
         f.write(f"DEBUG: {msg}\n")
 
 def main():
-    # Load configuration
-    config = load_config()
-    
-    # Set up argument parser
-    parser = argparse.ArgumentParser(description='Calculate shadow dimensions based on wall height, width, orientation, and location.')
-    parser.add_argument('height', type=str, nargs='?',
-                      help=f'Wall height with unit (e.g., "10 feet" or "3 meters"). Supported units: {", ".join(UnitConverter.get_supported_units())}')
-    parser.add_argument('--width', type=str,
-                      help=f'Wall width with unit (e.g., "20 feet" or "6 meters"). Supported units: {", ".join(UnitConverter.get_supported_units())}')
-    parser.add_argument('--wall-angle', type=str, default="0",
-                      help='Wall angle in degrees from true north (0-360, clockwise)')
-    parser.add_argument('--location', type=str, default=config['default_location'],
-                      help=f'Location as address or "latitude,longitude" (default: {config["default_location"]})')
-    parser.add_argument('--start-time', type=str,
-                      help='Start time (HH:MM, YYYY-MM-DD, or YYYY-MM-DD HH:MM)')
-    parser.add_argument('--end-time', type=str,
-                      help='End time (HH:MM, YYYY-MM-DD, or YYYY-MM-DD HH:MM)')
-    parser.add_argument('--interval', type=str, default="30m",
-                      help='Time interval between calculations (e.g., 30m for 30 minutes, 1h for 1 hour)')
-    parser.add_argument('--plot', action='store_true',
-                      help='Show shadow plot')
-    parser.add_argument('--animate', action='store_true',
-                      help='Create animation for time range calculations')
-    parser.add_argument('--save-animation', type=str,
-                      help='Save animation to file (must end in .gif or .mp4)')
-    parser.add_argument('--input-file', type=str,
-                      help='YAML file containing input parameters')
-    parser.add_argument('--config', action='store_true',
-                      help='Show current configuration')
-    parser.add_argument('--areas', type=str,
-                      help='YAML file containing areas to analyze for shadow coverage')
-    
-    args = parser.parse_args()
-    
-    # Handle input file
-    if args.input_file:
-        try:
-            # Parse input file and get raw data
-            input_data = InputFileParser.load_and_validate(args.input_file)
-            input_args = InputFileParser.convert_to_args(input_data)
-            
-            # Update args with input file values, preserving any command-line overrides
-            args_dict = vars(args)
-            for key, value in input_args.items():
-                if args_dict[key] is None or (isinstance(args_dict[key], bool) and not args_dict[key]):
-                    args_dict[key] = value
-            args = argparse.Namespace(**args_dict)
-            
-        except ValueError as e:
-            print(f"Error in input file: {str(e)}")
+    try:
+        # Load configuration
+        config = load_config()
+        
+        # Parse command line arguments
+        parser = argparse.ArgumentParser(description='Calculate shadow length and direction')
+        parser.add_argument('--height', help='Height of wall (with units, e.g. "10 feet")')
+        parser.add_argument('--width', help='Width of wall (with units, e.g. "20 feet")')
+        parser.add_argument('--wall-angle', type=float, help='Wall angle in degrees from true north (clockwise)')
+        parser.add_argument('--location', help='Location (address or "latitude,longitude")')
+        parser.add_argument('--start-time', help='Start time (HH:MM, YYYY-MM-DD, or YYYY-MM-DD HH:MM)')
+        parser.add_argument('--end-time', help='End time (same format as start-time)')
+        parser.add_argument('--interval', help='Time interval (e.g. "30m", "1h")')
+        parser.add_argument('--plot', action='store_true', help='Show plot')
+        parser.add_argument('--animate', action='store_true', help='Show animation')
+        parser.add_argument('--save-animation', help='Save animation to file')
+        parser.add_argument('--input-file', help='Input file (YAML)')
+        
+        args = parser.parse_args()
+        
+        # Parse input file if provided
+        if args.input_file:
+            try:
+                # Parse input file and get raw data
+                input_data = InputFileParser.load_from_file(args.input_file)
+                print_debug(f"Raw file content:\n{input_data}")
+                
+                # Convert to args format
+                file_args = InputFileParser.convert_to_args(input_data)
+                print_debug(f"Converted args: {file_args}")
+                
+                # Update args with file values
+                for key, value in file_args.items():
+                    if value is not None:
+                        setattr(args, key, value)
+                print_debug(f"Final args: {vars(args)}")
+            except ValueError as e:
+                print(f"Error processing input file: {str(e)}")
+                return
+        
+        # Extract values and units from measurements
+        if args.height:
+            height_value, height_unit = UnitConverter.parse_value_with_unit(args.height)
+            if not height_unit:
+                height_unit = config['output_units'].get('shadow', config['output_units']['default'])
+        else:
+            print("Wall height is required")
             return
         
-    if args.config:
-        print("Current configuration:")
-        print(yaml.dump(config, default_flow_style=False))
-        return
+        if args.width:
+            width_value, width_unit = UnitConverter.parse_value_with_unit(args.width)
+            if not width_unit:
+                width_unit = config['output_units'].get('shadow', config['output_units']['default'])
+        else:
+            width_value = height_value
+            width_unit = height_unit
         
-    if not args.height:
-        parser.print_help()
-        return
-        
-    if not args.width:
-        print("Error: Wall width is required")
-        return
-        
-    try:
-        # Parse height and convert to meters
-        height_value, height_unit = UnitConverter.parse_value_with_unit(args.height)
+        # Convert measurements to meters for calculations
         height_meters = UnitConverter.convert_to_meters(height_value, height_unit)
-        
-        # Parse width and convert to meters
-        width_value, width_unit = UnitConverter.parse_value_with_unit(args.width)
         width_meters = UnitConverter.convert_to_meters(width_value, width_unit)
         
         # Parse wall angle
-        wall_angle = parse_angle(args.wall_angle)
+        if isinstance(args.wall_angle, str):
+            try:
+                wall_angle = float(args.wall_angle)
+            except ValueError:
+                print(f"Invalid wall angle: {args.wall_angle}")
+                return
+        else:
+            wall_angle = args.wall_angle
+        wall_angle = wall_angle % 360  # Normalize to 0-360
         
         # Get coordinates
         lat, lon, location_name = get_coordinates(args.location)
         
-        # Handle time range calculations
-        if args.start_time and args.end_time:  # Only do range if both times are specified
-            # Parse start and end times
-            start_time = parse_time(args.start_time)
-            end_time = parse_time(args.end_time)
+        # Calculate shadow for single time
+        calc_time = parse_time(args.start_time) if args.start_time else datetime.now()
+        shadow_result = calculate_shadow_length(height_meters, width_meters, wall_angle, lat, lon, calc_time)
+        
+        if shadow_result is None:
+            print(f"\nNo shadow calculation possible - sun is below horizon at {location_name}")
+            return
+        
+        shadow_length, shadow_width, shadow_angle, shadow_area = shadow_result
+        
+        # Convert measurements to configured output units
+        output_unit = config.get('output_units', {}).get('shadow', 'meters')
+        area_unit = f"sq {output_unit}"
+        
+        shadow_length_converted = UnitConverter.convert_from_meters(shadow_length, output_unit)
+        shadow_width_converted = UnitConverter.convert_from_meters(shadow_width, output_unit)
+        shadow_area_converted = UnitConverter.convert_from_meters(shadow_area, output_unit) ** 2
+        
+        print(f"\nLocation: {location_name}")
+        print(f"Wall dimensions: {height_value} {height_unit} x {width_value} {width_unit}")
+        print(f"Wall angle: {wall_angle:.1f}° from true north")
+        print(f"Time: {calc_time.strftime('%Y-%m-%d %H:%M')}")
+        print(f"Shadow length: {shadow_length_converted:.2f} {output_unit}")
+        print(f"Shadow width: {shadow_width_converted:.2f} {output_unit}")
+        print(f"Shadow direction: {shadow_angle:.1f}° from true north")
+        print(f"Shadow area: {shadow_area_converted:.2f} {area_unit}")
+        
+        # Show plot if requested
+        if hasattr(args, 'plot') and args.plot:
+            print_debug("Plotting shadow diagram...")
+            print_debug(f"Args: {args}")
+            print_debug(f"Plot flag: {args.plot}")
             
-            # Ensure start time is before end time
-            if start_time > end_time:
-                start_time, end_time = end_time, start_time
-                
-            # Parse time interval
-            time_step = parse_duration(args.interval)
+            # Areas are defined in meters, wall dimensions are already in meters
+            print_debug(f"Wall width in meters: {width_meters}")
+            print_debug(f"Shadow length in meters: {shadow_length}")
             
-            # Calculate shadows for time range
-            results = calculate_shadow_range(
-                height_meters, width_meters, wall_angle, lat, lon,
-                start_time, end_time, time_step
-            )
+            # Define areas in meters
+            areas = [
+                {
+                    'name': 'Picnic Area',
+                    'shape': 'rectangle',
+                    'center': [5, 5],  # meters
+                    'width': 3,        # meters
+                    'height': 3,       # meters
+                    'angle': 0
+                },
+                {
+                    'name': 'Garden Bed',
+                    'shape': 'rectangle',
+                    'center': [8, 2],  # meters
+                    'width': 4,        # meters
+                    'height': 2,       # meters
+                    'angle': 45
+                }
+            ]
             
-            # Output results
-            print(f"\nLocation: {location_name}")
-            print(f"Wall dimensions: {height_value} {height_unit} x {width_value} {width_unit}")
-            print(f"Wall angle: {wall_angle}° from true north")
-            print(f"\nShadow calculations from {start_time.strftime('%Y-%m-%d %H:%M')} "
-                  f"to {end_time.strftime('%Y-%m-%d %H:%M')} "
-                  f"at {args.interval} intervals:")
-            print("\nTime                  Shadow Length  Shadow Width   Direction     Area")
-            print("-" * 75)
+            print_debug(f"Areas in meters: {areas}")
             
-            # Convert measurements to configured output units
-            output_unit = config['output_units'].get('shadow', config['output_units']['default'])
-            area_unit = f"sq {output_unit}"
-            
-            for time, length, width, angle, area in results:
-                length_converted = UnitConverter.convert_from_meters(length, output_unit)
-                width_converted = UnitConverter.convert_from_meters(width, output_unit)
-                area_converted = UnitConverter.convert_from_meters(area, output_unit) ** 2
-                print(f"{time.strftime('%Y-%m-%d %H:%M')}  "
-                      f"{length_converted:8.2f} {output_unit:8}  "
-                      f"{width_converted:8.2f} {output_unit:8}  "
-                      f"{angle:6.1f}°  "
-                      f"{area_converted:8.2f} {area_unit}")
-            
-            # Create animation if requested
-            if args.animate or args.save_animation:
-                areas = None
-                if args.areas:
-                    try:
-                        with open(args.areas, 'r') as f:
-                            areas = yaml.safe_load(f)
-                    except Exception as e:
-                        print(f"Error loading areas file: {e}")
-                create_shadow_animation(results, width_meters, wall_angle, args.save_animation, areas)
-                
-        else:
-            # Calculate shadow for single time
-            calc_time = parse_time(args.start_time) if args.start_time else datetime.now()
-            shadow_result = calculate_shadow_length(height_meters, width_meters, wall_angle, lat, lon, calc_time)
-            
-            if shadow_result is None:
-                print(f"\nNo shadow calculation possible - sun is below horizon at {location_name}")
-                return
-                
-            shadow_length, shadow_width, shadow_angle, shadow_area = shadow_result
-            
-            # Convert measurements to configured output units
-            output_unit = config.get('output_units', {}).get('shadow', 'meters')
-            area_unit = f"sq {output_unit}"
-            
-            shadow_length_converted = UnitConverter.convert_from_meters(shadow_length, output_unit)
-            shadow_width_converted = UnitConverter.convert_from_meters(shadow_width, output_unit)
-            shadow_area_converted = UnitConverter.convert_from_meters(shadow_area, output_unit) ** 2
-            
-            print(f"\nLocation: {location_name}")
-            print(f"Wall dimensions: {height_value} {height_unit} x {width_value} {width_unit}")
-            print(f"Wall angle: {wall_angle}° from true north")
-            print(f"Time: {calc_time.strftime('%Y-%m-%d %H:%M')}")
-            print(f"Shadow length: {shadow_length_converted:.2f} {output_unit}")
-            print(f"Shadow width: {shadow_width_converted:.2f} {output_unit}")
-            print(f"Shadow direction: {shadow_angle:.1f}° from true north")
-            print(f"Shadow area: {shadow_area_converted:.2f} {area_unit}")
-            
-            # Show plot if requested
-            if args.plot:
-                # Convert areas from meters to output units
-                output_unit = config.get('output_units', {}).get('shadow', 'meters')
-                conversion_factor = UNIT_CONVERSIONS[output_unit]
-                
-                areas = [
-                    {
-                        'name': 'Picnic Area',
-                        'shape': 'rectangle',
-                        'center': [x * conversion_factor for x in [5, 5]],
-                        'width': 3 * conversion_factor,
-                        'height': 3 * conversion_factor,
-                        'angle': 0
-                    },
-                    {
-                        'name': 'Garden Bed',
-                        'shape': 'rectangle',
-                        'center': [x * conversion_factor for x in [8, 2]],
-                        'width': 4 * conversion_factor,
-                        'height': 2 * conversion_factor,
-                        'angle': 45
-                    }
-                ]
-                
-                print_debug(f"Areas (in {output_unit}): {areas}")
-                
-                # Plot shadow with areas
-                plot_shadow(width_meters, wall_angle, shadow_length, shadow_width, 
-                          shadow_angle, calc_time, areas=areas)
+            # Plot shadow with areas using already-converted dimensions
+            plt.close('all')  # Close any existing plots
+            fig, ax = plot_shadow(width_meters, wall_angle, shadow_length, shadow_width, 
+                                shadow_angle, calc_time, areas=areas, show=True)
+            print_debug("About to show plot...")
+            plt.show()  # Show the plot
+            print_debug("Plot shown")
             
     except ValueError as e:
         print(f"Error: {str(e)}")
+        return
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
         return
 
 if __name__ == "__main__":

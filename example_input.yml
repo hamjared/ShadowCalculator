@@ -2,7 +2,7 @@
 # All measurements can include units (e.g., "10 feet", "3 meters")
 
 wall:
-  height: "10 feet"
+  height: "22 feet"
   width: "20 feet"
   angle: 90  # degrees from true north (clockwise)
 
@@ -13,20 +13,21 @@ time:
   interval: "1h"  # Optional, default is "30m"
 
 visualization:
-  plot: true      # Show static plot
-  animate: false  # Show animation for time range
+  plot: True      # Show static plot
+  animate: False  # Show animation for time range
   save_animation: "shadow_movement.gif"  # Optional, save animation to file
 
 areas:  # Areas to analyze for shadow coverage
   - name: "Picnic Area"
     shape: "rectangle"
-    center: [5, 5]  # [x, y] coordinates in meters from wall base
-    width: 3  # meters
-    height: 3  # meters
-    angle: 0  # degrees from true north (clockwise)
+    center: [5, 5]  # meters from wall center
+    width: 3        # meters
+    height: 3       # meters
+    angle: 0        # degrees clockwise from north
+  
   - name: "Garden Bed"
     shape: "rectangle"
-    center: [8, 2]  # [x, y] coordinates in meters from wall base
-    width: 4  # meters
-    height: 2  # meters
-    angle: 45  # Angled 45 degrees clockwise from north
+    center: [8, 2]  # meters from wall center
+    width: 4        # meters
+    height: 2       # meters
+    angle: 45       # degrees clockwise from north

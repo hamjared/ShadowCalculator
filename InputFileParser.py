@@ -7,6 +7,9 @@ import yaml
 from typing import Dict, Any, List
 from pathlib import Path
 
+def print_debug(message: str) -> None:
+    print(f"DEBUG: {message}")
+
 class InputFileParser:
     """Parser for shadow calculator input files."""
     
@@ -21,13 +24,20 @@ class InputFileParser:
         Raises:
             ValueError: If required parameters are missing
         """
-        if not isinstance(wall_data, dict):
-            raise ValueError("Wall section must be a dictionary")
-            
-        required_fields = ['height', 'width']
-        for field in required_fields:
-            if field not in wall_data:
-                raise ValueError(f"Wall section must contain '{field}'")
+        if not wall_data:
+            raise ValueError("Wall section is required")
+        
+        required_params = ['height', 'width']
+        for param in required_params:
+            if param not in wall_data:
+                raise ValueError(f"Missing required wall parameter: {param}")
+        
+        # Validate angle
+        if 'angle' in wall_data:
+            try:
+                wall_data['angle'] = float(wall_data['angle'])
+            except (ValueError, TypeError):
+                raise ValueError(f"Invalid wall angle: {wall_data['angle']}")
     
     @staticmethod
     def validate_time_section(time_data: Dict[str, Any]) -> None:
@@ -66,12 +76,16 @@ class InputFileParser:
         """
         if not isinstance(viz_data, dict):
             raise ValueError("Visualization section must be a dictionary")
-            
-        # Validate animation file extension if present
-        if 'save_animation' in viz_data:
-            file_ext = Path(str(viz_data['save_animation'])).suffix.lower()
-            if file_ext not in ['.gif', '.mp4']:
-                raise ValueError("Animation file must end in .gif or .mp4")
+        
+        # Check that plot and animate are boolean
+        if 'plot' in viz_data and not isinstance(viz_data['plot'], bool):
+            raise ValueError("Visualization 'plot' must be a boolean")
+        if 'animate' in viz_data and not isinstance(viz_data['animate'], bool):
+            raise ValueError("Visualization 'animate' must be a boolean")
+        
+        # Check that save_animation is a string if present
+        if 'save_animation' in viz_data and not isinstance(viz_data['save_animation'], str):
+            raise ValueError("Visualization 'save_animation' must be a string")
     
     @classmethod
     def validate_areas_section(cls, areas: List[Dict[str, Any]]) -> None:
@@ -126,89 +140,107 @@ class InputFileParser:
             ValueError: If the file is invalid or missing required parameters
         """
         if not isinstance(input_data, dict):
-            raise ValueError("Input file must contain a dictionary")
-            
-        # Validate required sections
+            raise ValueError("Input file must be a dictionary")
+        
+        # Validate wall section
         if 'wall' not in input_data:
             raise ValueError("Input file must contain 'wall' section")
-            
-        # Validate each section
         cls.validate_wall_section(input_data['wall'])
+        
+        # Validate time section if present
         if 'time' in input_data:
             cls.validate_time_section(input_data['time'])
+        
+        # Validate visualization section if present
         if 'visualization' in input_data:
             cls.validate_visualization_section(input_data['visualization'])
+            # Ensure plot is a boolean
+            if 'plot' in input_data['visualization']:
+                input_data['visualization']['plot'] = bool(input_data['visualization']['plot'])
+        
+        # Validate areas section if present
         if 'areas' in input_data:
             cls.validate_areas_section(input_data['areas'])
-            
+        
         return input_data
     
     @classmethod
-    def load_and_validate(cls, file_path: str) -> Dict[str, Any]:
+    def load_from_file(cls, file_path: str) -> Dict[str, Any]:
         """
-        Load and validate a YAML input file.
+        Load input parameters from a YAML file.
         
         Args:
-            file_path: Path to YAML input file
+            file_path: Path to YAML file
             
         Returns:
-            Dictionary of validated input parameters
+            Dictionary of input parameters
+            
+        Raises:
+            ValueError: If the file cannot be parsed
         """
         try:
             with open(file_path, 'r') as f:
                 content = f.read()
-                print(f"DEBUG: Raw file content:\n{content}")
+                print_debug(f"Raw file content:\n{content}")
                 input_data = yaml.safe_load(content)
-                print(f"DEBUG: Parsed YAML:\n{input_data}")
+                print_debug(f"Parsed YAML:\n{input_data}")
+                if not isinstance(input_data, dict):
+                    raise ValueError("Invalid YAML: root must be a dictionary")
                 return cls.validate_input_file(input_data)
         except yaml.YAMLError as e:
             raise ValueError(f"Error parsing YAML file: {e}")
         except FileNotFoundError:
-            raise ValueError(f"Input file not found: {file_path}")
+            raise ValueError(f"File not found: {file_path}")
+        except Exception as e:
+            raise ValueError(f"Error reading file: {e}")
     
     @classmethod
     def convert_to_args(cls, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Convert input data dictionary to command line arguments.
+        Convert input file data to argument format.
         
         Args:
-            input_data: Dictionary of input parameters from YAML file
+            input_data: Dictionary of input parameters
             
         Returns:
-            Dictionary of command line arguments
+            Dictionary of arguments
         """
+        print_debug(f"Converting input data to args: {input_data}")
         args = {}
+        wall = input_data['wall']
         
-        # Wall parameters
-        wall_data = input_data.get('wall', {})
-        args['height'] = wall_data.get('height')
-        args['width'] = wall_data.get('width')
-        args['wall_angle'] = str(wall_data.get('angle', 0))
+        # Convert wall parameters
+        args['height'] = str(wall.get('height', ''))
+        args['width'] = str(wall.get('width', ''))
+        args['wall_angle'] = float(wall.get('angle', 0))  # Convert angle to float
         
-        # Location
-        args['location'] = input_data.get('location')
+        # Convert location
+        args['location'] = str(input_data.get('location', ''))
         
-        # Time parameters
-        time_data = input_data.get('time', {})
-        args['start_time'] = time_data.get('start')
-        args['end_time'] = time_data.get('end')
-        args['interval'] = time_data.get('interval', '30m')
+        # Convert time parameters
+        if 'time' in input_data:
+            time = input_data['time']
+            args['start_time'] = str(time.get('start', ''))
+            args['end_time'] = str(time.get('end', ''))
+            args['interval'] = str(time.get('interval', '30m'))
         
-        # Visualization parameters
-        vis_data = input_data.get('visualization', {})
-        args['plot'] = vis_data.get('plot', True)
-        args['animate'] = vis_data.get('animate', False)
-        args['save_animation'] = vis_data.get('save_animation')
+        # Convert visualization parameters
+        if 'visualization' in input_data:
+            print_debug(f"Found visualization section: {input_data['visualization']}")
+            vis = input_data['visualization']
+            args['plot'] = True if vis.get('plot', False) else False
+            args['animate'] = True if vis.get('animate', False) else False
+            args['save_animation'] = str(vis.get('save_animation', ''))
+            print_debug(f"Visualization settings: {vis}")
+            print_debug(f"Plot flag: {args['plot']}")
         
-        # Areas to analyze
-        args['areas'] = input_data.get('areas', [])
-        
+        print_debug(f"Final args: {args}")
         return args
     
     @classmethod
-    def parse(cls, file_path: str) -> Dict[str, Any]:
+    def parse_file(cls, file_path: str) -> Dict[str, Any]:
         """
-        Parse and validate a YAML input file.
+        Parse a YAML input file.
         
         Args:
             file_path: Path to YAML input file
@@ -217,7 +249,7 @@ class InputFileParser:
             Dictionary of validated input parameters
         """
         # First load and validate the raw input
-        input_data = cls.load_and_validate(file_path)
+        input_data = cls.load_from_file(file_path)
         
         # Convert to args format
         args = cls.convert_to_args(input_data)
@@ -225,5 +257,5 @@ class InputFileParser:
         # Preserve the raw input data for sections that don't map to args
         args['raw_input'] = input_data
         
-        print(f"DEBUG: Final parsed data: {args}")
+        print_debug(f"Final parsed data: {args}")
         return args

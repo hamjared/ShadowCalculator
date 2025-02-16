@@ -15,6 +15,7 @@ from matplotlib.patches import Rectangle, Polygon, Circle
 from matplotlib.animation import FuncAnimation
 from InputFileParser import InputFileParser
 from UnitConverter import UnitConverter
+from datetime import timezone, timedelta
 
 # Dictionary of conversion factors to meters
 UNIT_CONVERSIONS = UnitConverter.UNIT_CONVERSIONS
@@ -87,6 +88,8 @@ def calculate_shadow_length(wall_height: float, wall_width: float, wall_angle: f
     solar_elevation = elevation(observer=loc.observer, dateandtime=date_time)
     solar_azimuth = azimuth(observer=loc.observer, dateandtime=date_time)
     
+    print(f"DEBUG: Solar azimuth at {date_time}: {solar_azimuth}°")  # Debug print
+    
     # Convert angles to radians
     elevation_rad = math.radians(solar_elevation)
     azimuth_rad = math.radians(solar_azimuth)
@@ -117,8 +120,8 @@ def calculate_shadow_length(wall_height: float, wall_width: float, wall_angle: f
     shadow_width = wall_width / math.cos(relative_angle_rad) if relative_angle_rad < math.pi/2 else wall_width
     
     # Calculate shadow angle (direction)
-    # Shadow is cast in the same direction as the sun's azimuth
-    shadow_angle = solar_azimuth
+    # Shadow is cast in the opposite direction from the sun's azimuth
+    shadow_angle = (solar_azimuth + 180) % 360  # Shadow points opposite to sun
     
     # Calculate shadow area (approximate as a trapezoid)
     shadow_area = (shadow_width * shadow_length)
@@ -231,12 +234,13 @@ def parse_time(time_str: str) -> datetime:
     - YYYY-MM-DD HH:MM
     If only time is provided, uses current date.
     If only date is provided, uses 00:00 as time.
+    All times are interpreted in the local timezone.
     
     Args:
         time_str: Time string in one of the supported formats
         
     Returns:
-        datetime: Parsed datetime object
+        datetime: Parsed datetime object with timezone information
     """
     try:
         now = datetime.now()
@@ -244,27 +248,30 @@ def parse_time(time_str: str) -> datetime:
         # Try parsing as time only (HH:MM)
         try:
             time = datetime.strptime(time_str, "%H:%M").time()
-            return datetime.combine(now.date(), time)
+            dt = datetime.combine(now.date(), time)
+            # Add timezone offset for Denver (UTC-7)
+            return dt.replace(tzinfo=timezone(timedelta(hours=-7)))
         except ValueError:
             pass
-            
+        
         # Try parsing as date only (YYYY-MM-DD)
         try:
             date = datetime.strptime(time_str, "%Y-%m-%d").date()
-            return datetime.combine(date, datetime.min.time())
+            dt = datetime.combine(date, datetime.min.time())
+            return dt.replace(tzinfo=timezone(timedelta(hours=-7)))
         except ValueError:
             pass
-            
+        
         # Try parsing as full datetime (YYYY-MM-DD HH:MM)
-        return datetime.strptime(time_str, "%Y-%m-%d %H:%M")
-            
-    except ValueError:
-        raise ValueError(
-            "Invalid time format. Use one of:\n"
-            "- HH:MM (e.g., 14:30)\n"
-            "- YYYY-MM-DD (e.g., 2025-02-16)\n"
-            "- YYYY-MM-DD HH:MM (e.g., 2025-02-16 14:30)"
-        )
+        try:
+            dt = datetime.strptime(time_str, "%Y-%m-%d %H:%M")
+            return dt.replace(tzinfo=timezone(timedelta(hours=-7)))
+        except ValueError:
+            pass
+        
+        raise ValueError(f"Invalid time format: {time_str}")
+    except Exception as e:
+        raise ValueError(f"Error parsing time: {str(e)}")
 
 def parse_duration(duration_str: str) -> timedelta:
     """
@@ -297,7 +304,8 @@ def parse_duration(duration_str: str) -> timedelta:
         )
 
 def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float, 
-                shadow_width: float, shadow_angle: float, time: datetime = None) -> None:
+                shadow_width: float, shadow_angle: float, time: datetime = None,
+                show: bool = True) -> tuple:
     """
     Plot the wall and its shadow.
     
@@ -308,42 +316,30 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
         shadow_width: Width of the shadow in meters
         shadow_angle: Shadow angle in degrees from true north (clockwise)
         time: Optional datetime for plot title
+        show: Whether to show the plot immediately
     """
     # Create figure and axis
     fig, ax = plt.subplots(figsize=(10, 10))
     
-    # Convert angles to matplotlib coordinates (0° is east, counterclockwise)
-    # For clockwise angles from north, we:
-    # 1. Subtract from 90° to convert from north-reference to east-reference
-    # 2. Negate to convert from clockwise to counterclockwise
-    wall_plot_angle = -(90 - wall_angle)
-    shadow_plot_angle = -(90 - shadow_angle)
+    # Convert angles to radians (compass coordinates: clockwise from north)
+    wall_rad = np.radians(wall_angle)
+    shadow_rad = np.radians(shadow_angle)
     
-    # Calculate shadow vertices
-    shadow_rad = np.radians(shadow_plot_angle)
-    dx = shadow_length * np.cos(shadow_rad)
-    dy = shadow_length * np.sin(shadow_rad)
-    
-    # Create shadow polygon
+    # Calculate shadow vertices using compass coordinates
+    # In compass coordinates: x = r * sin(theta), y = r * cos(theta)
     vertices = [
-        (-wall_width/2, 0),  # Left wall point
-        (wall_width/2, 0),   # Right wall point
-        (wall_width/2 + dx, dy),  # Right shadow point
-        (-wall_width/2 + dx, dy)  # Left shadow point
+        (-wall_width/2 * np.sin(wall_rad), -wall_width/2 * np.cos(wall_rad)),  # Left wall point
+        (wall_width/2 * np.sin(wall_rad), wall_width/2 * np.cos(wall_rad)),    # Right wall point
+        (wall_width/2 * np.sin(wall_rad) + shadow_length * np.sin(shadow_rad),  # Right shadow point
+         wall_width/2 * np.cos(wall_rad) + shadow_length * np.cos(shadow_rad)),
+        (-wall_width/2 * np.sin(wall_rad) + shadow_length * np.sin(shadow_rad), # Left shadow point
+         -wall_width/2 * np.cos(wall_rad) + shadow_length * np.cos(shadow_rad))
     ]
-    
-    # Rotate vertices to match wall angle
-    wall_rad = np.radians(wall_plot_angle)
-    rotation = np.array([
-        [np.cos(wall_rad), -np.sin(wall_rad)],
-        [np.sin(wall_rad), np.cos(wall_rad)]
-    ])
-    vertices = [rotation @ np.array(v) for v in vertices]
     
     # Create patches
     shadow = Polygon(vertices, color='gray', alpha=0.3, zorder=1)
     
-    # Create wall line (instead of rectangle)
+    # Create wall line
     wall_start = vertices[0]  # Left wall point
     wall_end = vertices[1]    # Right wall point
     wall_line = plt.Line2D([wall_start[0], wall_end[0]], 
@@ -353,12 +349,11 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
                           zorder=2)
     
     # Add sun symbol at solar azimuth
-    sun_angle = (shadow_angle + 180) % 360  # Sun is opposite to shadow direction
-    sun_plot_angle = -(90 - sun_angle)  # Convert to matplotlib angle
-    sun_rad = np.radians(sun_plot_angle)
+    sun_angle = (shadow_angle + 180) % 360  # Sun is opposite the shadow
+    sun_rad = np.radians(sun_angle)
     sun_radius = max(shadow_length, wall_width) * 1.2
-    sun_x = sun_radius * np.cos(sun_rad)
-    sun_y = sun_radius * np.sin(sun_rad)
+    sun_x = sun_radius * np.sin(sun_rad)  # Compass coordinates
+    sun_y = sun_radius * np.cos(sun_rad)  # Compass coordinates
     
     # Draw sun
     sun = plt.Circle((sun_x, sun_y), radius=sun_radius*0.05, 
@@ -381,7 +376,11 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
         'N': (0, compass_radius),
         'S': (0, -compass_radius),
         'E': (compass_radius, 0),
-        'W': (-compass_radius, 0)
+        'W': (-compass_radius, 0),
+        'NE': (compass_radius * 0.707, compass_radius * 0.707),
+        'SE': (compass_radius * 0.707, -compass_radius * 0.707),
+        'SW': (-compass_radius * 0.707, -compass_radius * 0.707),
+        'NW': (-compass_radius * 0.707, compass_radius * 0.707)
     }
     
     for direction, (x, y) in compass_points.items():
@@ -395,7 +394,7 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
     
     # Set equal aspect ratio and limits
     ax.set_aspect('equal')
-    limit = compass_radius * 1.1  # Use the same radius as compass points
+    limit = compass_radius * 1.1
     ax.set_xlim(-limit, limit)
     ax.set_ylim(-limit, limit)
     
@@ -410,7 +409,9 @@ def plot_shadow(wall_width: float, wall_angle: float, shadow_length: float,
     ax.add_patch(shadow)
     ax.add_line(wall_line)
     
-    plt.show()
+    if show:
+        plt.show()
+    return fig, ax
 
 def create_shadow_animation(results: list, wall_width: float, wall_angle: float, 
                           output_file: str = None) -> None:
@@ -434,7 +435,7 @@ def create_shadow_animation(results: list, wall_width: float, wall_angle: float,
         
         # Plot shadow for this frame
         plot_shadow(wall_width, wall_angle, shadow_length, shadow_width, 
-                   shadow_angle, time)
+                   shadow_angle, time, show=False)
         
         # Maintain axis properties
         ax.set_aspect('equal')
@@ -531,11 +532,10 @@ def main():
         lat, lon, location_name = get_coordinates(args.location)
         
         # Handle time range calculations
-        if args.start_time or args.end_time:
-            # If one time is specified but not the other, use current time
-            now = datetime.now()
-            start_time = parse_time(args.start_time) if args.start_time else now
-            end_time = parse_time(args.end_time) if args.end_time else now
+        if args.start_time and args.end_time:  # Only do range if both times are specified
+            # Parse start and end times
+            start_time = parse_time(args.start_time)
+            end_time = parse_time(args.end_time)
             
             # Ensure start time is before end time
             if start_time > end_time:
@@ -579,9 +579,9 @@ def main():
                 create_shadow_animation(results, width_meters, wall_angle, args.save_animation)
                 
         else:
-            # Calculate shadow for current time only
-            now = datetime.now()
-            shadow_result = calculate_shadow_length(height_meters, width_meters, wall_angle, lat, lon, now)
+            # Calculate shadow for single time
+            calc_time = parse_time(args.start_time) if args.start_time else datetime.now()
+            shadow_result = calculate_shadow_length(height_meters, width_meters, wall_angle, lat, lon, calc_time)
             
             if shadow_result is None:
                 print(f"\nNo shadow calculation possible - sun is below horizon at {location_name}")
@@ -600,7 +600,7 @@ def main():
             print(f"\nLocation: {location_name}")
             print(f"Wall dimensions: {height_value} {height_unit} x {width_value} {width_unit}")
             print(f"Wall angle: {wall_angle}° from true north")
-            print(f"Time: {now.strftime('%Y-%m-%d %H:%M')}")
+            print(f"Time: {calc_time.strftime('%Y-%m-%d %H:%M')}")
             print(f"Shadow length: {shadow_length_converted:.2f} {output_unit}")
             print(f"Shadow width: {shadow_width_converted:.2f} {output_unit}")
             print(f"Shadow direction: {shadow_angle:.1f}° from true north")
@@ -609,7 +609,7 @@ def main():
             # Show plot if requested
             if args.plot:
                 plot_shadow(width_meters, wall_angle, shadow_length, shadow_width, 
-                          shadow_angle, now)
+                          shadow_angle, calc_time)
             
     except ValueError as e:
         print(f"Error: {str(e)}")

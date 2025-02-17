@@ -8,6 +8,7 @@ from DataModel.Point import Point, ureg
 from DataModel.TimeSpecification import TimeSpecification
 from DataModel.PlotConfig import PlotConfig
 from Plotting.ShadowPlotter import ShadowPlotter
+from Calculation.Sun import Sun
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -55,20 +56,16 @@ class ShadowCalculator:
         Returns:
             List of Shadow objects, one for each wall
         """
-        # TODO: Implement actual shadow calculations
+        # Get sun position for this time and location
+        sun_position = Sun.get_position(
+            latitude=self.location.latitude,
+            longitude=self.location.longitude,
+            time=time
+        )
+        
+        # TODO: Implement actual shadow calculations using sun position
         # This is a placeholder that creates dummy shadows
         shadows = []
-        
-        # Calculate approximate sun position for time of day
-        hour = time.hour + time.minute / 60
-        day_fraction = (hour - 7) / (17 - 7)  # 7 AM to 5 PM
-        
-        # Azimuth: start at 120° (SE), through 180° (S), to 240° (SW)
-        azimuth = 120 + day_fraction * 120
-        
-        # Elevation: peaks at 35° at noon (winter)
-        elevation = 35 * np.sin(np.pi * day_fraction)
-        
         for wall in self.walls:
             # Create dummy vertices (will be replaced with actual calculations)
             vertices = [
@@ -89,8 +86,8 @@ class ShadowCalculator:
                 wall=wall,
                 time=time,
                 vertices=vertices,
-                solar_elevation=elevation,
-                solar_azimuth=azimuth
+                solar_elevation=sun_position.elevation,
+                solar_azimuth=sun_position.azimuth
             )
             shadows.append(shadow)
             

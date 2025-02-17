@@ -8,6 +8,7 @@ from DataModel.Shadow import Shadow
 from DataModel.Wall import Wall
 from DataModel.PlotConfig import PlotConfig
 from DataModel.Location import Location
+from Calculation.Sun import Sun  # Import Sun class
 
 class ShadowPlotter:
     """Class for plotting shadows and walls."""
@@ -131,53 +132,52 @@ class ShadowPlotter:
                 fontweight='bold'
             )
             
-        # Draw sun path for sunrise, current position, and sunset
-        # For a winter day:
-        # - Sunrise: ~120° azimuth, 0° elevation
-        # - Sunset: ~240° azimuth, 0° elevation
-        sunrise_azimuth = 120
-        sunset_azimuth = 240
+        # Get sunrise and sunset times for sun path
+        sunrise, sunset = Sun.get_sunrise_sunset(
+            latitude=self.location.latitude,
+            longitude=self.location.longitude,
+            date=shadow.time
+        )
         
-        # Get current position
-        current_azimuth = shadow.solar_azimuth
-        current_elevation = shadow.solar_elevation
+        # Get positions throughout the day for sun path
+        positions = Sun.get_day_positions(
+            latitude=self.location.latitude,
+            longitude=self.location.longitude,
+            date=shadow.time,
+            interval_minutes=30
+        )
         
-        # Calculate points for sunrise, current position, and sunset
-        def get_point(azimuth: float, elevation: float) -> tuple:
+        # Helper function to convert sun position to compass coordinates
+        def sun_to_compass(azimuth: float, elevation: float) -> tuple:
             angle_rad = np.radians(90 - azimuth)  # Convert to math angle
             radius = compass_size * (1 - elevation/90) * 0.8
             x = center_x + np.cos(angle_rad) * radius
             y = center_y + np.sin(angle_rad) * radius
             return (x, y)
         
-        sunrise_point = get_point(sunrise_azimuth, 0)
-        current_point = get_point(current_azimuth, current_elevation)
-        sunset_point = get_point(sunset_azimuth, 0)
-        
-        # Draw arc through the three points
-        path_points = []
-        num_points = 50
-        for i in range(num_points):
-            t = i / (num_points - 1)
-            # Use a sine curve for elevation to create a natural arc
-            azimuth = sunrise_azimuth + t * (sunset_azimuth - sunrise_azimuth)
-            elevation = 35 * np.sin(np.pi * t)  # Peak at 35° elevation
-            path_points.append(get_point(azimuth, elevation))
-        
         # Draw sun path
-        path_x, path_y = zip(*path_points)
-        ax.plot(path_x, path_y, '--', color='orange', alpha=0.3, linewidth=1)
-        
-        # Add sunrise and sunset markers
-        for point, time in [(sunrise_point, "Sunrise"), (sunset_point, "Sunset")]:
-            ax.text(point[0], point[1], time,
-                   fontsize=5, ha='center', va='center',
-                   bbox=dict(facecolor='white', alpha=0.7, 
-                           edgecolor='none', pad=0.5))
+        if positions:
+            path_points = [
+                sun_to_compass(pos.azimuth, pos.elevation)
+                for pos in positions
+            ]
+            path_x, path_y = zip(*path_points)
+            ax.plot(path_x, path_y, '--', color='orange', alpha=0.3, linewidth=1)
+            
+            # Add sunrise and sunset markers
+            sunrise_pos = positions[0]
+            sunset_pos = positions[-1]
+            for pos, label in [(sunrise_pos, "Sunrise"), (sunset_pos, "Sunset")]:
+                x, y = sun_to_compass(pos.azimuth, pos.elevation)
+                ax.text(x, y, label,
+                       fontsize=5, ha='center', va='center',
+                       bbox=dict(facecolor='white', alpha=0.7, 
+                               edgecolor='none', pad=0.5))
         
         # Draw current sun position
+        sun_x, sun_y = sun_to_compass(shadow.solar_azimuth, shadow.solar_elevation)
         sun = patches.Circle(
-            current_point,
+            (sun_x, sun_y),
             radius=compass_size * 0.08,
             facecolor='yellow',
             edgecolor='orange',

@@ -2,6 +2,10 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 import zoneinfo
 import datetime
+from pint import UnitRegistry
+
+# Create unit registry
+ureg = UnitRegistry()
 
 @dataclass
 class PlotConfig:
@@ -17,6 +21,8 @@ class PlotConfig:
         dpi: DPI for saved plots
         timezone: Timezone for displaying times (e.g., "America/Denver")
                  If None, uses system timezone
+        output_units: Units to use for plot dimensions (e.g., "meters", "feet")
+                     All measurements will be converted to these units
     """
     enabled: bool = False
     save_path: Optional[str] = None
@@ -26,6 +32,7 @@ class PlotConfig:
     show_dimensions: bool = True
     dpi: int = 300
     timezone: Optional[str] = None
+    output_units: str = "meters"
     
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -38,6 +45,36 @@ class PlotConfig:
             zoneinfo.ZoneInfo(self.timezone)
         except zoneinfo.ZoneInfoNotFoundError:
             raise ValueError(f"Invalid timezone: {self.timezone}")
+            
+        # Validate output units
+        try:
+            # Try to parse units to validate them
+            ureg.parse_units(self.output_units)
+        except:
+            raise ValueError(
+                f"Invalid output units: {self.output_units}. "
+                "Must be a valid unit of length (e.g., 'meters', 'feet')"
+            )
+    
+    def convert_to_output_units(self, quantity) -> ureg.Quantity:
+        """Convert a quantity to the output units.
+        
+        Args:
+            quantity: A Pint quantity to convert
+            
+        Returns:
+            Quantity in output units
+            
+        Raises:
+            ValueError: If quantity cannot be converted to output units
+        """
+        try:
+            return quantity.to(self.output_units)
+        except:
+            raise ValueError(
+                f"Cannot convert {quantity} to {self.output_units}. "
+                "Make sure both units are measures of length."
+            )
     
     def format_time(self, time: datetime.datetime) -> str:
         """Format a time in the configured timezone.
@@ -68,6 +105,7 @@ class PlotConfig:
         show_dimensions: bool
         dpi: int
         timezone: str
+        output_units: str
         """
         # Handle figure size specially
         if 'figure_size' in data:

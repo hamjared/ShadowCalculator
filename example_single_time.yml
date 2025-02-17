@@ -31,3 +31,4 @@ plotConfig:
   show_dimensions: true           # Show wall and shadow dimensions
   dpi: 300                        # DPI for saved plots
   timezone: "America/Denver"    # Timezone for time display (optional, defaults to system timezone)
+  output_units: "feet"          # Units for plot dimensions

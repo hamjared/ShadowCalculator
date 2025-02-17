@@ -19,7 +19,7 @@ class Plotter:
         """
         self.config = config
         self.location = location
-        self.shadow_plotter = ShadowPlotter()
+        self.shadow_plotter = ShadowPlotter(config)
         self.compass_plotter = CompassPlotter(location)
     
     def format_location(self) -> str:

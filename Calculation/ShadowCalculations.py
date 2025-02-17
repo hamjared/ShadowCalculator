@@ -89,19 +89,21 @@ class ShadowCalculations:
     
     @staticmethod
     def calculate_shadow_length(wall_height: ureg.Quantity, 
-                              solar_elevation: float) -> ureg.Quantity:
+                              solar_elevation: float,
+                              max_length_factor: float = 10) -> ureg.Quantity:
         """Calculate shadow length based on wall height and sun elevation.
         
         Args:
             wall_height: Height of wall
             solar_elevation: Sun elevation in degrees
+            max_length_factor: Maximum shadow length as multiple of wall height
             
         Returns:
             Shadow length in same units as wall height
             
         Note:
             Uses the formula: length = height / tan(elevation)
-            When sun is at horizon (0°), length is infinite
+            When sun is at horizon (0°), length is capped at max_length_factor * height
             When sun is overhead (90°), length is 0
         """
         # Convert elevation to radians
@@ -109,10 +111,14 @@ class ShadowCalculations:
         
         # Avoid division by zero when sun is at horizon
         if elevation_rad < 0.001:  # About 0.057 degrees
-            return wall_height * 1000  # Very long shadow
+            return wall_height * max_length_factor
             
         # Calculate length using trigonometry
-        return wall_height / math.tan(elevation_rad)
+        length = wall_height / math.tan(elevation_rad)
+        
+        # Cap length at maximum
+        max_length = wall_height * max_length_factor
+        return min(length, max_length)
     
     @staticmethod
     def calculate_shadow_direction(solar_azimuth: float) -> float:

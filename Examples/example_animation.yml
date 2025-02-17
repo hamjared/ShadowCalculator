@@ -1,0 +1,48 @@
+# Example input file with time range animation
+
+# Location specification
+location:
+  latitude: 40.7128
+  longitude: -74.0060
+
+# Time specification - range with 30-minute intervals
+time:
+  start: "2025-02-17T09:00:00-07:00"  # 9 AM (avoid early morning)
+  end: "2025-02-17T15:00:00-07:00"    # 3 PM (avoid late afternoon)
+  interval: "30m"                      # 30-minute intervals
+
+# Wall definitions
+walls:
+  - name: "North-South Wall"
+    height: "10 feet"
+    start: ["0 feet", "0 feet"]
+    end: ["0 feet", "20 feet"]    # Wall running north-south
+
+  - name: "East-West Wall"
+    height: "10 feet"
+    start: ["0 feet", "0 feet"]
+    end: ["20 feet", "0 feet"]    # Wall running east-west
+
+  - name: "Diagonal Wall"
+    height: "10 feet"
+    start: ["0 feet", "0 feet"]
+    end: ["20 feet", "20 feet"]   # Wall at 45 degrees
+
+# Animation configuration
+animationConfig:
+  enabled: true
+  save_path: "shadows.gif"    # Can also use .mp4
+  fps: 1                     # Frames per second
+  loop: true                 # Loop the animation (GIF only)
+
+# Plot configuration
+plotConfig:
+  enabled: true
+  save_path: "shadows_final.png"  # Final frame as static image
+  figure_size: [12, 8]
+  show_compass: true
+  show_sun: true
+  show_dimensions: true
+  dpi: 300
+  timezone: "America/Denver"
+  output_units: "feet"

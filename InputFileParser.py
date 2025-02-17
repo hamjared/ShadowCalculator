@@ -4,6 +4,7 @@ from DataModel import Wall, Location, WallParser, LocationParser
 from DataModel.TimeSpecification import TimeSpecification
 from DataModel.PlotConfig import PlotConfig
 from DataModel.SunConfig import SunConfig
+from DataModel.AnimationConfig import AnimationConfig
 
 class InputFileParser:
     """Parser for shadow calculator input files."""
@@ -70,6 +71,16 @@ class InputFileParser:
             raise ValueError(f"Error parsing sun configuration: {str(e)}")
     
     @classmethod
+    def parse_animation_config(cls, data: Dict[str, Any]) -> AnimationConfig:
+        """Parse animation configuration from input data."""
+        try:
+            if 'animationConfig' in data:
+                return AnimationConfig.from_dict(data['animationConfig'])
+            return AnimationConfig()  # Return default config if not specified
+        except Exception as e:
+            raise ValueError(f"Error parsing animation configuration: {str(e)}")
+    
+    @classmethod
     def load_from_file(cls, file_path: str) -> Dict[str, Any]:
         """Load and parse data from a YAML file."""
         try:
@@ -85,6 +96,7 @@ class InputFileParser:
             time_spec = cls.parse_time_spec(data)
             plot_config = cls.parse_plot_config(data)
             sun_config = cls.parse_sun_config(data)
+            animation_config = cls.parse_animation_config(data)
             
             return {
                 'walls': walls,
@@ -92,6 +104,7 @@ class InputFileParser:
                 'time_spec': time_spec,
                 'plot_config': plot_config,
                 'sun_config': sun_config,
+                'animation_config': animation_config,
                 'raw_data': data  # Include raw data for other sections
             }
             

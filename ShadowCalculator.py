@@ -8,6 +8,7 @@ from DataModel.Point import Point, ureg
 from DataModel.TimeSpecification import TimeSpecification
 from DataModel.PlotConfig import PlotConfig
 from DataModel.SunConfig import SunConfig
+from DataModel.AnimationConfig import AnimationConfig
 from Plotting.Plotter import Plotter
 from Calculation.Sun import Sun
 from Calculation.ShadowCalculations import ShadowCalculations
@@ -19,14 +20,15 @@ class ShadowCalculator:
     
     def __init__(self, location: Location, walls: list[Wall], 
                  time_spec: TimeSpecification, plot_config: PlotConfig,
-                 sun_config: SunConfig):
+                 sun_config: SunConfig, animation_config: AnimationConfig):
         """Initialize the calculator with location, walls, and specifications."""
         self.location = location
         self.walls = walls
         self.time_spec = time_spec
         self.plot_config = plot_config
         self.sun_config = sun_config
-        self.plotter = Plotter(plot_config, location)
+        self.animation_config = animation_config
+        self.plotter = Plotter(plot_config, location, animation_config)
     
     @classmethod
     def from_input_file(cls, file_path: str) -> "ShadowCalculator":
@@ -48,7 +50,8 @@ class ShadowCalculator:
                 walls=data['walls'],
                 time_spec=data['time_spec'],
                 plot_config=data['plot_config'],
-                sun_config=data['sun_config']
+                sun_config=data['sun_config'],
+                animation_config=data['animation_config']
             )
         except Exception as e:
             raise ValueError(f"Error loading input file: {str(e)}")
@@ -111,3 +114,14 @@ class ShadowCalculator:
             self.plotter.save(fig, self.plot_config.save_path)
         else:
             plt.show()
+            
+    def create_animation(self, all_shadows: List[List[Shadow]]) -> None:
+        """Create animation if animation is enabled in configuration.
+        
+        Args:
+            all_shadows: List of shadow lists, one for each time point
+        """
+        if not self.animation_config.enabled:
+            return
+            
+        self.plotter.create_animation(all_shadows)

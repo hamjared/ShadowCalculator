@@ -68,6 +68,11 @@ def main():
         action='store_true',
         help='Disable plotting even if enabled in input file'
     )
+    parser.add_argument(
+        '--no-animation',
+        action='store_true',
+        help='Disable animation even if enabled in input file'
+    )
     
     args = parser.parse_args()
     
@@ -75,9 +80,11 @@ def main():
         # Create calculator from input file
         calculator = ShadowCalculator.from_input_file(args.input)
         
-        # Override plot config if --no-plot specified
+        # Override plot/animation config if requested
         if args.no_plot:
             calculator.plot_config.enabled = False
+        if args.no_animation:
+            calculator.animation_config.enabled = False
         
         # Get time specification info
         num_points, time_desc = calculator.time_spec.get_progress_info()
@@ -91,30 +98,37 @@ def main():
                 print(f"Plots will be saved to: {calculator.plot_config.save_path}")
             else:
                 print("Plots will be displayed")
+        if calculator.animation_config.enabled:
+            print(f"Animation will be saved to: {calculator.animation_config.save_path}")
         
         # Calculate shadows
-        all_shadows = calculator.calculate()
-        
-        # Print results
-        if calculator.time_spec.is_point:
-            # Single time point
-            shadows = all_shadows[0]
-            print(format_shadow_results(shadows, args.verbose))
-            if calculator.plot_config.enabled:
-                calculator.plot_shadows(shadows)
+        print("\nCalculating shadows...")
+        if args.progress:
+            with tqdm(total=num_points, desc="Progress") as pbar:
+                all_shadows = []
+                for time in calculator.time_spec.get_times():
+                    shadows = calculator.calculate_for_time(time)
+                    all_shadows.append(shadows)
+                    if args.verbose:
+                        print(format_shadow_results(shadows, args.verbose))
+                    pbar.update(1)
         else:
-            # Time range
-            print("\nShadow calculations:")
-            if args.progress:
-                for shadows in tqdm(all_shadows, total=num_points):
-                    print(format_shadow_results(shadows, args.verbose))
-                    if calculator.plot_config.enabled:
-                        calculator.plot_shadows(shadows)
-            else:
+            all_shadows = calculator.calculate()
+            if args.verbose:
                 for shadows in all_shadows:
                     print(format_shadow_results(shadows, args.verbose))
-                    if calculator.plot_config.enabled:
-                        calculator.plot_shadows(shadows)
+        
+        # Create animation if enabled
+        if calculator.animation_config.enabled:
+            print("\nCreating animation...")
+            calculator.create_animation(all_shadows)
+            print(f"Animation saved to: {calculator.animation_config.save_path}")
+        
+        # Plot final frame if plotting is enabled
+        if calculator.plot_config.enabled:
+            calculator.plot_shadows(all_shadows[-1])
+            if calculator.plot_config.save_path:
+                print(f"Final plot saved to: {calculator.plot_config.save_path}")
         
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)

@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Tuple
+from typing import Tuple, Optional
 from astral import LocationInfo
 from astral.sun import sun, azimuth, elevation
 import math
+from DataModel.SunConfig import SunConfig
 
 @dataclass
 class SunPosition:
@@ -66,13 +67,15 @@ class Sun:
         )
     
     @staticmethod
-    def get_position(latitude: float, longitude: float, time: datetime) -> SunPosition:
+    def get_position(latitude: float, longitude: float, time: datetime,
+                    sun_config: Optional[SunConfig] = None) -> SunPosition:
         """Get sun position at specified time and location.
         
         Args:
             latitude: Latitude in degrees (-90 to 90)
             longitude: Longitude in degrees (-180 to 180)
             time: Time to calculate position for (must be timezone-aware)
+            sun_config: Optional configuration to override position
             
         Returns:
             SunPosition with azimuth and elevation
@@ -83,6 +86,15 @@ class Sun:
         if time.tzinfo is None:
             raise ValueError("Time must be timezone-aware")
             
+        # Use fixed position if configured
+        if sun_config and sun_config.override_position:
+            return SunPosition(
+                azimuth=sun_config.azimuth,
+                elevation=sun_config.elevation,
+                time=time
+            )
+            
+        # Otherwise calculate from location and time
         location = Sun.get_location_info(latitude, longitude)
         
         # Calculate azimuth and elevation

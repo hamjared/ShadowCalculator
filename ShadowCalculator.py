@@ -7,8 +7,9 @@ from DataModel.Shadow import Shadow
 from DataModel.Point import Point, ureg
 from DataModel.TimeSpecification import TimeSpecification
 from DataModel.PlotConfig import PlotConfig
+from DataModel.SunConfig import SunConfig
 from Plotting.Plotter import Plotter
-from Calculation.Sun import Sun, SunPosition
+from Calculation.Sun import Sun
 from Calculation.ShadowCalculations import ShadowCalculations
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,12 +18,14 @@ class ShadowCalculator:
     """Main class for calculating shadows cast by walls."""
     
     def __init__(self, location: Location, walls: list[Wall], 
-                 time_spec: TimeSpecification, plot_config: PlotConfig):
+                 time_spec: TimeSpecification, plot_config: PlotConfig,
+                 sun_config: SunConfig):
         """Initialize the calculator with location, walls, and specifications."""
         self.location = location
         self.walls = walls
         self.time_spec = time_spec
         self.plot_config = plot_config
+        self.sun_config = sun_config
         self.plotter = Plotter(plot_config, location)
     
     @classmethod
@@ -44,7 +47,8 @@ class ShadowCalculator:
                 location=data['location'],
                 walls=data['walls'],
                 time_spec=data['time_spec'],
-                plot_config=data['plot_config']
+                plot_config=data['plot_config'],
+                sun_config=data['sun_config']
             )
         except Exception as e:
             raise ValueError(f"Error loading input file: {str(e)}")
@@ -58,12 +62,12 @@ class ShadowCalculator:
         Returns:
             List of Shadow objects, one for each wall
         """
-        # TEMPORARY: Use fixed sun position for testing
-        # Sun at 45 degrees elevation, coming exactly from the east (90 degrees)
-        sun_position = SunPosition(
-            elevation=45.0,
-            azimuth=90.0,  # Exactly east
-            time=time
+        # Get sun position for this time and location
+        sun_position = Sun.get_position(
+            latitude=self.location.latitude,
+            longitude=self.location.longitude,
+            time=time,
+            sun_config=self.sun_config
         )
         
         # Calculate shadows for each wall

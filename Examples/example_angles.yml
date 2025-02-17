@@ -26,6 +26,12 @@ walls:
     start: ["0 feet", "0 feet"]
     end: ["20 feet", "20 feet"]   # Wall at 45 degrees
 
+# Sun position override (optional)
+sunConfig:
+  override_position: true
+  elevation: 45.0          # 45 degrees above horizon
+  azimuth: 90.0           # Sun directly east
+
 # Plot configuration
 plotConfig:
   enabled: true

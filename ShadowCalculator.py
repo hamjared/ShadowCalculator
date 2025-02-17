@@ -9,6 +9,7 @@ from DataModel.TimeSpecification import TimeSpecification
 from DataModel.PlotConfig import PlotConfig
 from Plotting.Plotter import Plotter
 from Calculation.Sun import Sun
+from Calculation.ShadowCalculations import ShadowCalculations
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -64,31 +65,14 @@ class ShadowCalculator:
             time=time
         )
         
-        # TODO: Implement actual shadow calculations using sun position
-        # This is a placeholder that creates dummy shadows
+        # Calculate shadows for each wall
         shadows = []
         for wall in self.walls:
-            # Create dummy vertices (will be replaced with actual calculations)
-            vertices = [
-                wall.start_point,  # Wall start
-                wall.end_point,    # Wall end
-                Point(            # Shadow end connected to wall start
-                    x=wall.start_point.x + ureg.Quantity('5 meters'),
-                    y=wall.start_point.y + ureg.Quantity('5 meters')
-                ),
-                Point(            # Shadow end connected to wall end
-                    x=wall.end_point.x + ureg.Quantity('5 meters'),
-                    y=wall.end_point.y + ureg.Quantity('5 meters')
-                )
-            ]
-            
-            # Create shadow with calculated solar position
-            shadow = Shadow(
+            shadow = ShadowCalculations.calculate_shadow(
                 wall=wall,
-                time=time,
-                vertices=vertices,
                 solar_elevation=sun_position.elevation,
-                solar_azimuth=sun_position.azimuth
+                solar_azimuth=sun_position.azimuth,
+                time=time
             )
             shadows.append(shadow)
             

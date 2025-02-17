@@ -1,0 +1,31 @@
+# Example input file with sun exactly perpendicular to wall
+
+# Location specification
+location:
+  latitude: 40.7128
+  longitude: -74.0060
+
+# Time specification - single point
+# Note: We're not using this time for sun position
+# Instead we'll override it in the calculations
+time:
+  point: "2025-02-17T12:00:00-07:00"
+
+# Wall definitions
+walls:
+  - name: "North-South Wall"
+    height: "10 feet"
+    start: ["0 feet", "0 feet"]
+    end: ["0 feet", "20 feet"]    # Wall running exactly north-south
+
+# Plot configuration
+plotConfig:
+  enabled: true
+  save_path: "shadows.png"
+  figure_size: [12, 8]
+  show_compass: true
+  show_sun: true
+  show_dimensions: true
+  dpi: 300
+  timezone: "America/Denver"
+  output_units: "feet"

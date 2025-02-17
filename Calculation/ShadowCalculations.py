@@ -31,6 +31,63 @@ class ShadowCalculations:
         return compass_angle
     
     @staticmethod
+    def is_sun_parallel(wall_direction: float, shadow_direction: float,
+                       tolerance_degrees: float = 5) -> bool:
+        """Check if sun direction is parallel to wall.
+        
+        Args:
+            wall_direction: Wall direction in degrees
+            shadow_direction: Shadow direction in degrees
+            tolerance_degrees: Angle tolerance for parallel check
+            
+        Returns:
+            True if sun is parallel (within tolerance)
+        """
+        # The shadow direction is opposite to the sun direction
+        sun_direction = (shadow_direction + 180) % 360
+        
+        # Calculate angle between sun and wall
+        angle_diff = abs((sun_direction - wall_direction) % 360)
+        
+        # Sun is parallel when angle is close to 0 or 180 degrees
+        return (angle_diff <= tolerance_degrees or 
+                abs(angle_diff - 180) <= tolerance_degrees)
+    
+    @staticmethod
+    def is_sun_perpendicular(wall_direction: float, shadow_direction: float,
+                            tolerance_degrees: float = 5) -> bool:
+        """Check if sun direction is perpendicular to wall.
+        
+        Args:
+            wall_direction: Wall direction in degrees
+            shadow_direction: Shadow direction in degrees
+            tolerance_degrees: Angle tolerance for perpendicular check
+            
+        Returns:
+            True if sun is perpendicular (within tolerance)
+        """
+        # Calculate angle between wall and shadow
+        angle_diff = abs((shadow_direction - wall_direction) % 360)
+        print(f"Wall direction: {wall_direction:.1f}°")
+        print(f"Shadow direction: {shadow_direction:.1f}°")
+        print(f"Angle difference: {angle_diff:.1f}°")
+        
+        # For a north-south wall (0° or 180°), sun should be at 90° or 270° for perpendicular
+        # For an east-west wall (90° or 270°), sun should be at 0° or 180° for perpendicular
+        
+        # The shadow direction is opposite to the sun direction
+        sun_direction = (shadow_direction + 180) % 360
+        angle_to_wall = abs((sun_direction - wall_direction) % 360)
+        print(f"Sun direction: {sun_direction:.1f}°")
+        print(f"Angle to wall: {angle_to_wall:.1f}°")
+        
+        # Check if angle is close to 90 or 270 degrees
+        is_perp = (abs(angle_to_wall - 90) <= tolerance_degrees or 
+                  abs(angle_to_wall - 270) <= tolerance_degrees)
+        print(f"Is perpendicular: {is_perp}")
+        return is_perp
+    
+    @staticmethod
     def calculate_shadow_length(wall_height: ureg.Quantity, 
                               solar_elevation: float) -> ureg.Quantity:
         """Calculate shadow length based on wall height and sun elevation.
@@ -83,37 +140,63 @@ class ShadowCalculations:
             shadow_direction: Direction of shadow in degrees
             
         Returns:
-            List of 4 points forming shadow polygon:
-            [wall_start, wall_end, shadow_end, wall_start]
-            This creates a triangle from wall to shadow line
+            List of points forming shadow polygon.
+            If sun is parallel to wall: triangular shadow
+            Otherwise: parallelogram shadow
         """
+        # Get wall direction
+        wall_direction = ShadowCalculations.calculate_wall_direction(wall)
+        
         # Convert shadow direction to radians
         direction_rad = math.radians(shadow_direction)
         
-        # Calculate shadow end point offsets
+        # Calculate shadow offset
         dx = shadow_length * math.sin(direction_rad)
         dy = shadow_length * math.cos(direction_rad)
         
-        # Create offset quantities with same units as shadow length
+        # Create offset quantities
         dx = ureg.Quantity(dx, shadow_length.units)
         dy = ureg.Quantity(dy, shadow_length.units)
         
-        # Calculate shadow end point (from wall midpoint)
-        wall_mid_x = (wall.start_point.x + wall.end_point.x) / 2
-        wall_mid_y = (wall.start_point.y + wall.end_point.y) / 2
-        
-        shadow_end = Point(
-            x=wall_mid_x + dx,
-            y=wall_mid_y + dy
-        )
-        
-        # Return vertices in correct order to form triangle
-        return [
-            wall.start_point,    # Wall start
-            wall.end_point,      # Wall end
-            shadow_end,          # Shadow end point
-            wall.start_point     # Back to start to close polygon
-        ]
+        # Check if sun is parallel to wall
+        if ShadowCalculations.is_sun_parallel(wall_direction, shadow_direction):
+            # Create triangular shadow (sun parallel to wall)
+            # Use wall midpoint for shadow end
+            wall_mid_x = (wall.start_point.x + wall.end_point.x) / 2
+            wall_mid_y = (wall.start_point.y + wall.end_point.y) / 2
+            
+            shadow_end = Point(
+                x=wall_mid_x + dx,
+                y=wall_mid_y + dy
+            )
+            
+            # Return triangular shadow vertices
+            return [
+                wall.start_point,    # Wall start
+                wall.end_point,      # Wall end
+                shadow_end,          # Shadow end point
+                wall.start_point     # Back to start to close polygon
+            ]
+        else:
+            # Create parallelogram shadow (normal case)
+            # Each wall point casts a shadow in the same direction
+            shadow_start = Point(
+                x=wall.start_point.x + dx,
+                y=wall.start_point.y + dy
+            )
+            shadow_end = Point(
+                x=wall.end_point.x + dx,
+                y=wall.end_point.y + dy
+            )
+            
+            # Return parallelogram vertices
+            return [
+                wall.start_point,    # Wall start
+                wall.end_point,      # Wall end
+                shadow_end,          # Shadow end
+                shadow_start,        # Shadow start
+                wall.start_point     # Back to start to close polygon
+            ]
     
     @staticmethod
     def calculate_shadow(wall: Wall, solar_elevation: float, 

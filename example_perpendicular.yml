@@ -1,0 +1,34 @@
+# Example input file with sun perpendicular to wall
+
+# Location specification
+location:
+  latitude: 40.7128
+  longitude: -74.0060
+
+# Time specification - single point
+time:
+  point: "2025-02-17T09:00:00-07:00"  # Morning, sun in east
+
+# Wall definitions
+walls:
+  - name: "North-South Wall"
+    height: "10 feet"
+    start: ["0 feet", "0 feet"]
+    end: ["0 feet", "20 feet"]    # Wall running north-south
+
+  - name: "East-West Wall"
+    height: "12 feet"
+    start: ["0 feet", "0 feet"]
+    end: ["20 feet", "0 feet"]    # Wall running east-west
+
+# Plot configuration
+plotConfig:
+  enabled: true                    # Whether to generate plots
+  save_path: "shadows.png"        # Save to file instead of displaying
+  figure_size: [12, 8]            # Width and height in inches
+  show_compass: true              # Show compass directions
+  show_sun: true                  # Show sun position
+  show_dimensions: true           # Show wall and shadow dimensions
+  dpi: 300                        # DPI for saved plots
+  timezone: "America/Denver"      # Timezone for time display
+  output_units: "feet"            # Units for plot dimensions

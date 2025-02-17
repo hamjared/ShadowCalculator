@@ -8,7 +8,7 @@ from DataModel.Point import Point, ureg
 from DataModel.TimeSpecification import TimeSpecification
 from DataModel.PlotConfig import PlotConfig
 from Plotting.Plotter import Plotter
-from Calculation.Sun import Sun
+from Calculation.Sun import Sun, SunPosition
 from Calculation.ShadowCalculations import ShadowCalculations
 import matplotlib.pyplot as plt
 import numpy as np
@@ -58,10 +58,11 @@ class ShadowCalculator:
         Returns:
             List of Shadow objects, one for each wall
         """
-        # Get sun position for this time and location
-        sun_position = Sun.get_position(
-            latitude=self.location.latitude,
-            longitude=self.location.longitude,
+        # TEMPORARY: Use fixed sun position for testing
+        # Sun at 45 degrees elevation, coming exactly from the east (90 degrees)
+        sun_position = SunPosition(
+            elevation=45.0,
+            azimuth=90.0,  # Exactly east
             time=time
         )
         

@@ -9,19 +9,20 @@ from .Wall import Wall
 class Shadow:
     """Represents a shadow cast by a wall at a specific time.
     
-    The shadow is defined by four vertices that form a quadrilateral.
+    The shadow is defined by four or five vertices that form a quadrilateral or pentagon.
     The vertices MUST be specified in the following order:
     
     vertices[0]: Wall start point
     vertices[1]: Wall end point
     vertices[2]: Shadow end point connected to wall start
     vertices[3]: Shadow end point connected to wall end
+    vertices[4]: Optional additional point for rectangular shadows
     
     This ordering creates two edges along the wall (0->1),
     two edges along the shadow sides (0->2 and 1->3),
     and one edge at the shadow's end (2->3).
     
-    Visual representation:
+    Visual representation for triangular shadows:
     
         Wall Edge
     0 ------------- 1
@@ -31,6 +32,19 @@ class Shadow:
     |               |
     2 ------------- 3
       Shadow End
+    
+    Visual representation for rectangular shadows:
+    
+        Wall Edge
+    0 ------------- 1
+    |               |
+    |   Shadow     |
+    |    Area      |
+    |               |
+    2 ------------- 3
+    |               |
+    |               |
+    4 ------------- 5
     
     This specific ordering is required for:
     1. Length calculation (uses wall midpoint to shadow end midpoint)
@@ -56,9 +70,10 @@ class Shadow:
     
     def __post_init__(self):
         """Validate the shadow data after initialization."""
-        if len(self.vertices) != 4:
+        if len(self.vertices) not in [4, 5]:
             raise ValueError(
-                f"Shadow must have exactly 4 vertices, got {len(self.vertices)}"
+                f"Shadow must have 4 or 5 vertices (got {len(self.vertices)}). "
+                "4 for triangular shadows, 5 for rectangular shadows."
             )
     
     @property

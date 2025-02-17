@@ -63,7 +63,7 @@ class ShadowPlotter:
         Args:
             shadow: Shadow to plot
             ax: Matplotlib axes to plot on
-            show_dimensions: Whether to show shadow dimensions
+            show_dimensions: Whether to show wall dimensions
         """
         # Get vertex coordinates
         x_coords = [v.x.magnitude for v in shadow.vertices]
@@ -77,17 +77,6 @@ class ShadowPlotter:
             label=f'Shadow: {shadow.wall.name}'
         )
         ax.add_patch(polygon)
-        
-        # Add shadow dimensions if requested
-        if show_dimensions:
-            shadow_mid_x = (x_coords[2] + x_coords[3]) / 2
-            shadow_mid_y = (y_coords[2] + y_coords[3]) / 2
-            ax.annotate(
-                f'L: {shadow.length:~P}\nW: {shadow.width:~P}',
-                (shadow_mid_x, shadow_mid_y),
-                xytext=(5, 5),
-                textcoords='offset points'
-            )
     
     def plot_compass_with_sun(self, ax: Axes, x_min: float, x_max: float, 
                             y_min: float, y_max: float, shadow: Shadow) -> None:

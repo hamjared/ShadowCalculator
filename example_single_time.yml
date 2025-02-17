@@ -30,4 +30,4 @@ plotConfig:
   show_sun: true                  # Show sun position
   show_dimensions: true           # Show wall and shadow dimensions
   dpi: 300                        # DPI for saved plots
-  timezone: "America/New_York"    # Timezone for time display (optional, defaults to system timezone)
+  timezone: "America/Denver"    # Timezone for time display (optional, defaults to system timezone)

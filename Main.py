@@ -73,6 +73,11 @@ def main():
         action='store_true',
         help='Disable animation even if enabled in input file'
     )
+    parser.add_argument(
+        '--show-cache',
+        action='store_true',
+        help='Show cache statistics after calculations'
+    )
     
     args = parser.parse_args()
     
@@ -129,6 +134,11 @@ def main():
             calculator.plot_shadows(all_shadows[-1])
             if calculator.plot_config.save_path:
                 print(f"Final plot saved to: {calculator.plot_config.save_path}")
+        
+        # Show cache statistics if requested
+        if args.show_cache:
+            from Calculation.Sun import Sun
+            print(f"\n{Sun.cache_info()}")
         
     except Exception as e:
         print(f"Error: {str(e)}", file=sys.stderr)

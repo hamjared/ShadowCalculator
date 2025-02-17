@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List, Generator
 from astral import LocationInfo
 from astral.sun import sun, azimuth, elevation
 import math
+from functools import lru_cache
 from DataModel.SunConfig import SunConfig
 
-@dataclass
+@dataclass(frozen=True)  # Make hashable for caching
 class SunPosition:
     """Represents the sun's position in the sky.
     
@@ -29,6 +30,45 @@ class SunPosition:
 
 class Sun:
     """Static utility class for calculating sun position."""
+    
+    # Cache size for position calculations
+    CACHE_SIZE = 1024
+    
+    @staticmethod
+    @lru_cache(maxsize=CACHE_SIZE)
+    def _calculate_position(latitude: float, longitude: float, 
+                          time_str: str) -> Tuple[float, float]:
+        """Calculate sun position with caching.
+        
+        Args:
+            latitude: Latitude in degrees (-90 to 90)
+            longitude: Longitude in degrees (-180 to 180)
+            time_str: ISO formatted time string
+            
+        Returns:
+            Tuple of (azimuth, elevation) in degrees
+            
+        Note:
+            This is a private method used for caching. The public interface
+            is get_position() which handles datetime objects and validation.
+        """
+        # Parse time string back to datetime
+        time = datetime.fromisoformat(time_str)
+        
+        # Create location info
+        location = LocationInfo(
+            name='',
+            region='',
+            timezone='UTC',  # Use UTC for calculations
+            latitude=latitude,
+            longitude=longitude
+        )
+        
+        # Calculate position
+        az = azimuth(location.observer, time)
+        el = elevation(location.observer, time)
+        
+        return (az, el)
     
     @staticmethod
     def validate_coordinates(latitude: float, longitude: float) -> None:
@@ -94,17 +134,37 @@ class Sun:
                 time=time
             )
             
-        # Otherwise calculate from location and time
-        location = Sun.get_location_info(latitude, longitude)
+        # Convert time to ISO format string for caching
+        time_str = time.isoformat()
         
-        # Calculate azimuth and elevation
-        az = azimuth(location.observer, time)
-        el = elevation(location.observer, time)
+        # Get cached position
+        az, el = Sun._calculate_position(latitude, longitude, time_str)
         
         return SunPosition(
             azimuth=az,
             elevation=el,
             time=time
+        )
+    
+    @classmethod
+    def clear_cache(cls) -> None:
+        """Clear the position calculation cache."""
+        cls._calculate_position.cache_clear()
+    
+    @classmethod
+    def cache_info(cls) -> str:
+        """Get information about the cache.
+        
+        Returns:
+            String with cache hits/misses/size information
+        """
+        info = cls._calculate_position.cache_info()
+        return (
+            f"Sun position cache:\n"
+            f"  Hits: {info.hits}\n"
+            f"  Misses: {info.misses}\n"
+            f"  Current size: {info.currsize}\n"
+            f"  Max size: {info.maxsize}"
         )
     
     @staticmethod

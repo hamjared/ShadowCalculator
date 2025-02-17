@@ -6,8 +6,10 @@ from DataModel.Shadow import Shadow
 from DataModel.Location import Location
 from DataModel.PlotConfig import PlotConfig
 from DataModel.AnimationConfig import AnimationConfig
+from DataModel.Area import Area
 from .ShadowPlotter import ShadowPlotter
 from .CompassPlotter import CompassPlotter
+from .AreaPlotter import AreaPlotter
 
 class Plotter:
     """Main plotter class that coordinates shadow and compass plotting."""
@@ -26,6 +28,7 @@ class Plotter:
         self.animation_config = animation_config or AnimationConfig()
         self.shadow_plotter = ShadowPlotter(config)
         self.compass_plotter = CompassPlotter(location)
+        self.area_plotter = AreaPlotter(config)
     
     def format_location(self) -> str:
         """Format location for display.
@@ -39,11 +42,13 @@ class Plotter:
         lon_dir = 'E' if self.location.longitude >= 0 else 'W'
         return f"{lat:.4f}°{lat_dir}, {lon:.4f}°{lon_dir}"
     
-    def plot(self, shadows: List[Shadow], title: Optional[str] = None) -> Figure:
-        """Create a complete plot with walls, shadows, and compass.
+    def plot(self, shadows: List[Shadow], areas: Optional[List[Area]] = None,
+             title: Optional[str] = None) -> Figure:
+        """Create a complete plot with walls, shadows, areas, and compass.
         
         Args:
             shadows: List of shadows to plot
+            areas: Optional list of areas to plot
             title: Optional title for the plot
             
         Returns:
@@ -52,11 +57,24 @@ class Plotter:
         # Create figure and axes
         fig, ax = plt.subplots(figsize=self.config.figure_size)
         
+        # Plot areas first (if any)
+        if areas:
+            self.area_plotter.plot_areas(areas, ax)
+        
         # Plot shadows and walls
         self.shadow_plotter.plot_shadows(shadows, ax, self.config.show_dimensions)
         
-        # Get plot limits
-        x_min, x_max, y_min, y_max = self.shadow_plotter.get_plot_limits(shadows)
+        # Get plot limits considering both shadows and areas
+        shadow_limits = self.shadow_plotter.get_plot_limits(shadows)
+        if areas:
+            area_limits = self.area_plotter.get_plot_limits(areas)
+            x_min = min(shadow_limits[0], area_limits[0])
+            x_max = max(shadow_limits[1], area_limits[1])
+            y_min = min(shadow_limits[2], area_limits[2])
+            y_max = max(shadow_limits[3], area_limits[3])
+        else:
+            x_min, x_max, y_min, y_max = shadow_limits
+            
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
         
@@ -106,11 +124,13 @@ class Plotter:
         
         return fig
     
-    def create_animation(self, all_shadows: List[List[Shadow]]) -> None:
+    def create_animation(self, all_shadows: List[List[Shadow]], 
+                        areas: Optional[List[Area]] = None) -> None:
         """Create animation from shadow calculations.
         
         Args:
             all_shadows: List of shadow lists, one for each time point
+            areas: Optional list of areas to plot
         """
         if not self.animation_config.enabled or not all_shadows:
             return
@@ -119,14 +139,22 @@ class Plotter:
         fig, ax = plt.subplots(figsize=self.config.figure_size)
         
         # Calculate overall plot limits
-        all_limits = [
+        all_shadow_limits = [
             self.shadow_plotter.get_plot_limits(shadows)
             for shadows in all_shadows
         ]
-        x_min = min(limits[0] for limits in all_limits)
-        x_max = max(limits[1] for limits in all_limits)
-        y_min = min(limits[2] for limits in all_limits)
-        y_max = max(limits[3] for limits in all_limits)
+        x_min = min(limits[0] for limits in all_shadow_limits)
+        x_max = max(limits[1] for limits in all_shadow_limits)
+        y_min = min(limits[2] for limits in all_shadow_limits)
+        y_max = max(limits[3] for limits in all_shadow_limits)
+        
+        # Include area limits if present
+        if areas:
+            area_limits = self.area_plotter.get_plot_limits(areas)
+            x_min = min(x_min, area_limits[0])
+            x_max = max(x_max, area_limits[1])
+            y_min = min(y_min, area_limits[2])
+            y_max = max(y_max, area_limits[3])
         
         # Set fixed plot limits
         ax.set_xlim(x_min, x_max)
@@ -144,6 +172,10 @@ class Plotter:
         def update(frame):
             ax.clear()
             shadows = all_shadows[frame]
+            
+            # Plot areas first (if any)
+            if areas:
+                self.area_plotter.plot_areas(areas, ax)
             
             # Plot shadows and walls
             self.shadow_plotter.plot_shadows(shadows, ax, self.config.show_dimensions)
@@ -175,7 +207,7 @@ class Plotter:
             
             # Add grid and labels
             ax.grid(True, linestyle='--', alpha=0.3)
-            unit = str(shadows[0].wall.start_point.x.units)
+            unit = self.config.output_units
             ax.set_xlabel(f'Distance ({unit})')
             ax.set_ylabel(f'Distance ({unit})')
             

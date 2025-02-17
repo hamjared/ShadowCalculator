@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from datetime import datetime
 from InputFileParser import InputFileParser
 from DataModel.Location import Location
@@ -9,6 +9,7 @@ from DataModel.TimeSpecification import TimeSpecification
 from DataModel.PlotConfig import PlotConfig
 from DataModel.SunConfig import SunConfig
 from DataModel.AnimationConfig import AnimationConfig
+from DataModel.Area import Area
 from Plotting.Plotter import Plotter
 from Calculation.Sun import Sun
 from Calculation.ShadowCalculations import ShadowCalculations
@@ -20,7 +21,8 @@ class ShadowCalculator:
     
     def __init__(self, location: Location, walls: list[Wall], 
                  time_spec: TimeSpecification, plot_config: PlotConfig,
-                 sun_config: SunConfig, animation_config: AnimationConfig):
+                 sun_config: SunConfig, animation_config: AnimationConfig,
+                 areas: Optional[List[Area]] = None):
         """Initialize the calculator with location, walls, and specifications."""
         self.location = location
         self.walls = walls
@@ -28,6 +30,7 @@ class ShadowCalculator:
         self.plot_config = plot_config
         self.sun_config = sun_config
         self.animation_config = animation_config
+        self.areas = areas or []
         self.plotter = Plotter(plot_config, location, animation_config)
     
     @classmethod
@@ -51,7 +54,8 @@ class ShadowCalculator:
                 time_spec=data['time_spec'],
                 plot_config=data['plot_config'],
                 sun_config=data['sun_config'],
-                animation_config=data['animation_config']
+                animation_config=data['animation_config'],
+                areas=data.get('areas', [])
             )
         except Exception as e:
             raise ValueError(f"Error loading input file: {str(e)}")
@@ -107,7 +111,7 @@ class ShadowCalculator:
             return
             
         # Create plot
-        fig = self.plotter.plot(shadows)
+        fig = self.plotter.plot(shadows, areas=self.areas)
         
         # Save or display based on configuration
         if self.plot_config.save_path:
@@ -124,4 +128,4 @@ class ShadowCalculator:
         if not self.animation_config.enabled:
             return
             
-        self.plotter.create_animation(all_shadows)
+        self.plotter.create_animation(all_shadows, areas=self.areas)

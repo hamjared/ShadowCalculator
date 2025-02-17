@@ -5,6 +5,8 @@ from DataModel.TimeSpecification import TimeSpecification
 from DataModel.PlotConfig import PlotConfig
 from DataModel.SunConfig import SunConfig
 from DataModel.AnimationConfig import AnimationConfig
+from DataModel.Area import Area
+from DataModel.AreaParser import AreaParser
 
 class InputFileParser:
     """Parser for shadow calculator input files."""
@@ -27,6 +29,25 @@ class InputFileParser:
                 raise ValueError(f"Error parsing wall {i}: {str(e)}")
                 
         return walls
+    
+    @classmethod
+    def parse_areas(cls, data: Dict[str, Any]) -> List[Area]:
+        """Parse all areas from input data."""
+        if 'areas' not in data:
+            return []  # Areas are optional
+            
+        if not isinstance(data['areas'], list):
+            raise ValueError("'areas' section must be a list")
+            
+        areas = []
+        for i, area_data in enumerate(data['areas'], 1):
+            try:
+                area = AreaParser.parse(area_data)
+                areas.append(area)
+            except Exception as e:
+                raise ValueError(f"Error parsing area {i}: {str(e)}")
+                
+        return areas
     
     @classmethod
     def parse_location(cls, data: Dict[str, Any]) -> Location:
@@ -92,6 +113,7 @@ class InputFileParser:
                 
             # Parse required sections
             walls = cls.parse_walls(data)
+            areas = cls.parse_areas(data)
             location = cls.parse_location(data)
             time_spec = cls.parse_time_spec(data)
             plot_config = cls.parse_plot_config(data)
@@ -100,6 +122,7 @@ class InputFileParser:
             
             return {
                 'walls': walls,
+                'areas': areas,
                 'location': location,
                 'time_spec': time_spec,
                 'plot_config': plot_config,

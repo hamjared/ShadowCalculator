@@ -1,0 +1,53 @@
+# Example input file with areas
+
+# Location specification
+location:
+  latitude: 40.7128
+  longitude: -74.0060
+
+# Time specification - single point
+time:
+  point: "2025-02-17T12:00:00-07:00"
+
+# Wall definitions
+walls:
+  - name: "North-South Wall"
+    height: "10 feet"
+    start: ["0 feet", "0 feet"]
+    end: ["0 feet", "20 feet"]    # Wall running north-south
+
+  - name: "East-West Wall"
+    height: "10 feet"
+    start: ["0 feet", "0 feet"]
+    end: ["20 feet", "0 feet"]    # Wall running east-west
+
+# Area definitions
+areas:
+  - name: "Garden Area"
+    units: "feet"                 # Units for all vertices
+    vertices:                     # List of [x, y] coordinates
+      - [5, 5]
+      - [15, 5]
+      - [15, 15]
+      - [5, 15]                  # Square garden area
+
+  - name: "Patio Area"
+    units: "feet"                # Units for all vertices
+    vertices:                    # List of [x, y] coordinates
+      - [25, 0]
+      - [35, 0]
+      - [35, 10]
+      - [30, 15]
+      - [25, 10]                 # Irregular patio area
+
+# Plot configuration
+plotConfig:
+  enabled: true
+  save_path: "shadows.png"
+  figure_size: [12, 8]
+  show_compass: true
+  show_sun: true
+  show_dimensions: true
+  dpi: 300
+  timezone: "America/Denver"
+  output_units: "feet"

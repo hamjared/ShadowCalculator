@@ -7,7 +7,7 @@ from DataModel.Shadow import Shadow
 from DataModel.Point import Point, ureg
 from DataModel.TimeSpecification import TimeSpecification
 from DataModel.PlotConfig import PlotConfig
-from Plotting.ShadowPlotter import ShadowPlotter
+from Plotting.Plotter import Plotter
 from Calculation.Sun import Sun
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,6 +22,7 @@ class ShadowCalculator:
         self.walls = walls
         self.time_spec = time_spec
         self.plot_config = plot_config
+        self.plotter = Plotter(plot_config, location)
     
     @classmethod
     def from_input_file(cls, file_path: str) -> "ShadowCalculator":
@@ -113,14 +114,11 @@ class ShadowCalculator:
         if not self.plot_config.enabled:
             return
             
-        # Create plotter with configuration and location
-        plotter = ShadowPlotter(self.plot_config, self.location)
-        
         # Create plot
-        fig = plotter.plot(shadows)
+        fig = self.plotter.plot(shadows)
         
         # Save or display based on configuration
         if self.plot_config.save_path:
-            plotter.save(fig, self.plot_config.save_path)
+            self.plotter.save(fig, self.plot_config.save_path)
         else:
             plt.show()

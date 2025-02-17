@@ -73,12 +73,13 @@ class ShadowCalculator:
             ]
             
             # Create shadow with placeholder solar position
+            # Azimuth of 225° is southwest (180° is south, 270° is west)
             shadow = Shadow(
                 wall=wall,
                 time=time,
                 vertices=vertices,
-                solar_elevation=45.0,  # Placeholder
-                solar_azimuth=180.0    # Placeholder
+                solar_elevation=45.0,
+                solar_azimuth=225.0  # Southwest
             )
             shadows.append(shadow)
             
@@ -104,8 +105,8 @@ class ShadowCalculator:
         if not self.plot_config.enabled:
             return
             
-        # Create plotter with configuration
-        plotter = ShadowPlotter(self.plot_config)
+        # Create plotter with configuration and location
+        plotter = ShadowPlotter(self.plot_config, self.location)
         
         # Create plot
         fig = plotter.plot(shadows)

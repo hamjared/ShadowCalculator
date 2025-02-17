@@ -7,14 +7,28 @@ import numpy as np
 from DataModel.Shadow import Shadow
 from DataModel.Wall import Wall
 from DataModel.PlotConfig import PlotConfig
+from DataModel.Location import Location
 
 class ShadowPlotter:
     """Class for plotting shadows and walls."""
     
-    def __init__(self, config: PlotConfig):
-        """Initialize the plotter with configuration."""
+    def __init__(self, config: PlotConfig, location: Location):
+        """Initialize the plotter with configuration and location."""
         self.config = config
+        self.location = location
+    
+    def format_location(self) -> str:
+        """Format location for display.
         
+        Returns:
+            Location string in format "lat°N/S, lon°E/W"
+        """
+        lat = abs(self.location.latitude)
+        lon = abs(self.location.longitude)
+        lat_dir = 'N' if self.location.latitude >= 0 else 'S'
+        lon_dir = 'E' if self.location.longitude >= 0 else 'W'
+        return f"{lat:.4f}°{lat_dir}, {lon:.4f}°{lon_dir}"
+    
     def plot_wall(self, wall: Wall, ax: Axes, show_dimensions: bool = True) -> None:
         """Plot a wall on the given axes.
         
@@ -188,12 +202,15 @@ class ShadowPlotter:
         if self.config.show_compass and shadows:
             self.plot_compass_with_sun(ax, x_min, x_max, y_min, y_max, shadows[0])
         
-        # Set title with time in configured timezone
-        if title:
-            ax.set_title(title)
-        elif shadows:
+        # Set title with time and location
+        if shadows:
             time_str = self.config.format_time(shadows[0].time)
-            ax.set_title(f"Shadow Calculations for {time_str}")
+            location_str = self.format_location()
+            if title:
+                title = f"{title}\n{location_str}"
+            else:
+                title = f"Shadow Calculations for {time_str}\n{location_str}"
+        ax.set_title(title)
             
         # Add grid and labels
         ax.grid(True, linestyle='--', alpha=0.3)

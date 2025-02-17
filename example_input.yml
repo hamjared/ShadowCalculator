@@ -1,30 +1,22 @@
 # Example input file for shadow calculator
-# All measurements can include units (e.g., "10 feet", "3 meters")
 
-wall:
-  height: "22 feet"
-  width: "15 feet"
-  angle: 0  # degrees from true north (clockwise)
+# Location can be specified as coordinates or address
+location:
+  # Option 1: Using coordinates
+  latitude: 40.7128
+  longitude: -74.0060
+  
+  # Option 2: Using address (uncomment and comment out coordinates)
+  # address: "Empire State Building, New York"
 
-location: "40.512043, -104.966719"  # Can be address or "latitude,longitude"
-
-time:
-  # Time formats supported:
-  # - HH:MM (e.g., "15:00")
-  # - YYYY-MM-DD HH:MM (e.g., "2025-02-16 15:00")
-  # - YYYY-MM-DDTHH:MM:SS-ZZ:ZZ (e.g., "2025-02-16T15:00:00-07:00")
-  start: "2025-02-17T15:00:00-07:00"
-  interval: "60m"  # Minutes between calculations for animation
-
-visualization:
-  plot: true      # Show plot
-  animate: false  # Create animation
-  save_animation: "shadow_movement.gif"  # Save animation to file
-
-areas:
-  - name: "Deck"
-    shape: "rectangle"
-    center: ["10 feet", "2.5 feet"]  # [x, y] coordinates from wall center
-    width: "20 feet"
+# Wall definitions
+walls:
+  - name: "North Wall"
     height: "10 feet"
-    angle: 0  # degrees rotation
+    start: ["0 feet", "0 feet"]    # [x, y] coordinates
+    end: ["20 feet", "0 feet"]     # [x, y] coordinates
+
+  - name: "East Wall"
+    height: "12 feet"
+    start: ["20 feet", "0 feet"]   # [x, y] coordinates
+    end: ["20 feet", "15 feet"]    # [x, y] coordinates

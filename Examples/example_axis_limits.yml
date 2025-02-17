@@ -1,0 +1,61 @@
+# Example input file showing axis limit settings
+
+# Location specification
+location:
+  latitude: 40.512053
+  longitude: -104.966723
+
+# Time specification - range with 30-minute intervals
+time:
+  start: "2025-06-17T09:00:00-07:00"  # 9 AM
+  end: "2025-06-17T20:00:00-07:00"    # 8 PM
+  interval: "30m"                      # 30-minute intervals
+
+# Wall definitions
+walls:
+  - name: "South Most Wall"
+    height: "20 feet"
+    start: ["0 feet", "0 feet"]
+    end: ["15 feet", "0 feet"]    # Wall running east-west
+
+  - name: "North-South House Wall"
+    height: "20 feet"
+    start: ["15 feet", "0 feet"]
+    end: ["15 feet", "20 feet"]    # Wall running north-south
+
+  - name: "East-West Wall"
+    height: "20 feet"
+    start: ["15 feet", "20 feet"]
+    end: ["35 feet", "20 feet"]    # Wall running east-west
+
+# Area definitions
+areas:
+  - name: "Deck"
+    units: "feet"                 # Units for all vertices
+    vertices:                     # List of [x, y] coordinates
+      - [15, 10]
+      - [15, 20]
+      - [35, 20]
+      - [35, 10]                  # Deck area
+
+# Animation configuration
+animationConfig:
+  enabled: true
+  save_path: "shadows.gif"    # Can also use .mp4
+  fps: 1                      # Frames per second
+  loop: true                  # Loop the animation
+
+# Plot configuration
+plotConfig:
+  enabled: true
+  save_path: "shadows_final.png"
+  figure_size: [12, 8]
+  show_compass: true
+  show_sun: true
+  show_dimensions: true
+  dpi: 300
+  timezone: "America/Denver"
+  output_units: "feet"
+  # Fixed axis limits to show consistent view
+  x_limits: [-10, 50]        # Show 10 feet before and after walls
+  y_limits: [-10, 30]        # Show 10 feet before and after walls

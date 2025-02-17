@@ -65,15 +65,21 @@ class Plotter:
         self.shadow_plotter.plot_shadows(shadows, ax, self.config.show_dimensions)
         
         # Get plot limits considering both shadows and areas
-        shadow_limits = self.shadow_plotter.get_plot_limits(shadows)
-        if areas:
-            area_limits = self.area_plotter.get_plot_limits(areas)
-            x_min = min(shadow_limits[0], area_limits[0])
-            x_max = max(shadow_limits[1], area_limits[1])
-            y_min = min(shadow_limits[2], area_limits[2])
-            y_max = max(shadow_limits[3], area_limits[3])
+        if self.config.x_limits is not None and self.config.y_limits is not None:
+            # Use configured limits
+            x_min, x_max = self.config.x_limits
+            y_min, y_max = self.config.y_limits
         else:
-            x_min, x_max, y_min, y_max = shadow_limits
+            # Calculate limits from content
+            shadow_limits = self.shadow_plotter.get_plot_limits(shadows)
+            if areas:
+                area_limits = self.area_plotter.get_plot_limits(areas)
+                x_min = min(shadow_limits[0], area_limits[0])
+                x_max = max(shadow_limits[1], area_limits[1])
+                y_min = min(shadow_limits[2], area_limits[2])
+                y_max = max(shadow_limits[3], area_limits[3])
+            else:
+                x_min, x_max, y_min, y_max = shadow_limits
             
         ax.set_xlim(x_min, x_max)
         ax.set_ylim(y_min, y_max)
@@ -138,23 +144,29 @@ class Plotter:
         # Create figure and axes
         fig, ax = plt.subplots(figsize=self.config.figure_size)
         
-        # Calculate overall plot limits
-        all_shadow_limits = [
-            self.shadow_plotter.get_plot_limits(shadows)
-            for shadows in all_shadows
-        ]
-        x_min = min(limits[0] for limits in all_shadow_limits)
-        x_max = max(limits[1] for limits in all_shadow_limits)
-        y_min = min(limits[2] for limits in all_shadow_limits)
-        y_max = max(limits[3] for limits in all_shadow_limits)
-        
-        # Include area limits if present
-        if areas:
-            area_limits = self.area_plotter.get_plot_limits(areas)
-            x_min = min(x_min, area_limits[0])
-            x_max = max(x_max, area_limits[1])
-            y_min = min(y_min, area_limits[2])
-            y_max = max(y_max, area_limits[3])
+        # Get plot limits
+        if self.config.x_limits is not None and self.config.y_limits is not None:
+            # Use configured limits
+            x_min, x_max = self.config.x_limits
+            y_min, y_max = self.config.y_limits
+        else:
+            # Calculate limits from all shadows and areas
+            all_shadow_limits = [
+                self.shadow_plotter.get_plot_limits(shadows)
+                for shadows in all_shadows
+            ]
+            x_min = min(limits[0] for limits in all_shadow_limits)
+            x_max = max(limits[1] for limits in all_shadow_limits)
+            y_min = min(limits[2] for limits in all_shadow_limits)
+            y_max = max(limits[3] for limits in all_shadow_limits)
+            
+            # Include area limits if present
+            if areas:
+                area_limits = self.area_plotter.get_plot_limits(areas)
+                x_min = min(x_min, area_limits[0])
+                x_max = max(x_max, area_limits[1])
+                y_min = min(y_min, area_limits[2])
+                y_max = max(y_max, area_limits[3])
         
         # Set fixed plot limits
         ax.set_xlim(x_min, x_max)

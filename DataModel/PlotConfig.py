@@ -23,6 +23,8 @@ class PlotConfig:
                  If None, uses system timezone
         output_units: Units to use for plot dimensions (e.g., "meters", "feet")
                      All measurements will be converted to these units
+        x_limits: Optional tuple of (min, max) for x-axis
+        y_limits: Optional tuple of (min, max) for y-axis
     """
     enabled: bool = False
     save_path: Optional[str] = None
@@ -33,6 +35,8 @@ class PlotConfig:
     dpi: int = 300
     timezone: Optional[str] = None
     output_units: str = "meters"
+    x_limits: Optional[Tuple[float, float]] = None
+    y_limits: Optional[Tuple[float, float]] = None
     
     def __post_init__(self):
         """Validate configuration after initialization."""
@@ -55,6 +59,21 @@ class PlotConfig:
                 f"Invalid output units: {self.output_units}. "
                 "Must be a valid unit of length (e.g., 'meters', 'feet')"
             )
+            
+        # Validate axis limits if provided
+        if self.x_limits is not None:
+            if not isinstance(self.x_limits, (list, tuple)) or len(self.x_limits) != 2:
+                raise ValueError("x_limits must be a tuple of (min, max)")
+            if self.x_limits[0] >= self.x_limits[1]:
+                raise ValueError("x_limits[0] must be less than x_limits[1]")
+            self.x_limits = tuple(self.x_limits)
+            
+        if self.y_limits is not None:
+            if not isinstance(self.y_limits, (list, tuple)) or len(self.y_limits) != 2:
+                raise ValueError("y_limits must be a tuple of (min, max)")
+            if self.y_limits[0] >= self.y_limits[1]:
+                raise ValueError("y_limits[0] must be less than y_limits[1]")
+            self.y_limits = tuple(self.y_limits)
     
     def convert_to_output_units(self, quantity) -> ureg.Quantity:
         """Convert a quantity to the output units.
@@ -106,6 +125,8 @@ class PlotConfig:
         dpi: int
         timezone: str
         output_units: str
+        x_limits: [min, max]
+        y_limits: [min, max]
         """
         # Handle figure size specially
         if 'figure_size' in data:
@@ -113,6 +134,12 @@ class PlotConfig:
             if not isinstance(size, list) or len(size) != 2:
                 raise ValueError("figure_size must be [width, height]")
             data['figure_size'] = tuple(size)
+            
+        # Handle axis limits specially
+        if 'x_limits' in data and data['x_limits'] is not None:
+            data['x_limits'] = tuple(data['x_limits'])
+        if 'y_limits' in data and data['y_limits'] is not None:
+            data['y_limits'] = tuple(data['y_limits'])
             
         # Use dataclass defaults for missing values
         return cls(**{

@@ -122,9 +122,13 @@ class ShadowPlotter:
         # Add direction labels
         directions = {
             'N': (0, 1),    # North
-            'S': (0, -1),   # South
+            'NE': (0.707, 0.707),  # Northeast
             'E': (1, 0),    # East
+            'SE': (0.707, -0.707), # Southeast
+            'S': (0, -1),   # South
+            'SW': (-0.707, -0.707), # Southwest
             'W': (-1, 0),   # West
+            'NW': (-0.707, 0.707),  # Northwest
         }
         
         for direction, (dx, dy) in directions.items():
@@ -134,31 +138,71 @@ class ShadowPlotter:
                 x, y, direction,
                 ha='center', va='center',
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'),
-                fontsize=8,
+                fontsize=6,  # Smaller font for more directions
                 fontweight='bold'
             )
             
-        # Add sun position inside compass
-        sun_angle_rad = np.radians(shadow.solar_azimuth)
-        sun_x = center_x + np.cos(sun_angle_rad) * compass_size * 0.6
-        sun_y = center_y + np.sin(sun_angle_rad) * compass_size * 0.6
+        # Draw sun path for sunrise, current position, and sunset
+        # For a winter day:
+        # - Sunrise: ~120° azimuth, 0° elevation
+        # - Sunset: ~240° azimuth, 0° elevation
+        sunrise_azimuth = 120
+        sunset_azimuth = 240
         
-        # Draw sun symbol
+        # Get current position
+        current_azimuth = shadow.solar_azimuth
+        current_elevation = shadow.solar_elevation
+        
+        # Calculate points for sunrise, current position, and sunset
+        def get_point(azimuth: float, elevation: float) -> tuple:
+            angle_rad = np.radians(90 - azimuth)  # Convert to math angle
+            radius = compass_size * (1 - elevation/90) * 0.8
+            x = center_x + np.cos(angle_rad) * radius
+            y = center_y + np.sin(angle_rad) * radius
+            return (x, y)
+        
+        sunrise_point = get_point(sunrise_azimuth, 0)
+        current_point = get_point(current_azimuth, current_elevation)
+        sunset_point = get_point(sunset_azimuth, 0)
+        
+        # Draw arc through the three points
+        path_points = []
+        num_points = 50
+        for i in range(num_points):
+            t = i / (num_points - 1)
+            # Use a sine curve for elevation to create a natural arc
+            azimuth = sunrise_azimuth + t * (sunset_azimuth - sunrise_azimuth)
+            elevation = 35 * np.sin(np.pi * t)  # Peak at 35° elevation
+            path_points.append(get_point(azimuth, elevation))
+        
+        # Draw sun path
+        path_x, path_y = zip(*path_points)
+        ax.plot(path_x, path_y, '--', color='orange', alpha=0.3, linewidth=1)
+        
+        # Add sunrise and sunset markers
+        for point, time in [(sunrise_point, "Sunrise"), (sunset_point, "Sunset")]:
+            ax.text(point[0], point[1], time,
+                   fontsize=5, ha='center', va='center',
+                   bbox=dict(facecolor='white', alpha=0.7, 
+                           edgecolor='none', pad=0.5))
+        
+        # Draw current sun position
         sun = patches.Circle(
-            (sun_x, sun_y),
-            radius=compass_size * 0.1,
+            current_point,
+            radius=compass_size * 0.08,
             facecolor='yellow',
             edgecolor='orange',
             label='Sun'
         )
         ax.add_patch(sun)
         
-        # Add compact sun info
+        # Add current time and elevation
+        current_time = shadow.time.strftime('%H:%M')
         ax.text(
-            center_x, center_y,
-            f"El: {shadow.solar_elevation:.0f}°",
+            center_x, center_y - compass_size * 0.2,
+            f"{current_time}\nEl: {shadow.solar_elevation:.0f}°",
             ha='center', va='center',
-            fontsize=7,
+            fontsize=6,
             bbox=dict(facecolor='white', alpha=0.7, edgecolor='none')
         )
     

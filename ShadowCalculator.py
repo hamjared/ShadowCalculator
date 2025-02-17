@@ -9,6 +9,7 @@ from DataModel.TimeSpecification import TimeSpecification
 from DataModel.PlotConfig import PlotConfig
 from Plotting.ShadowPlotter import ShadowPlotter
 import matplotlib.pyplot as plt
+import numpy as np
 
 class ShadowCalculator:
     """Main class for calculating shadows cast by walls."""
@@ -57,6 +58,17 @@ class ShadowCalculator:
         # TODO: Implement actual shadow calculations
         # This is a placeholder that creates dummy shadows
         shadows = []
+        
+        # Calculate approximate sun position for time of day
+        hour = time.hour + time.minute / 60
+        day_fraction = (hour - 7) / (17 - 7)  # 7 AM to 5 PM
+        
+        # Azimuth: start at 120° (SE), through 180° (S), to 240° (SW)
+        azimuth = 120 + day_fraction * 120
+        
+        # Elevation: peaks at 35° at noon (winter)
+        elevation = 35 * np.sin(np.pi * day_fraction)
+        
         for wall in self.walls:
             # Create dummy vertices (will be replaced with actual calculations)
             vertices = [
@@ -72,14 +84,13 @@ class ShadowCalculator:
                 )
             ]
             
-            # Create shadow with placeholder solar position
-            # Azimuth of 225° is southwest (180° is south, 270° is west)
+            # Create shadow with calculated solar position
             shadow = Shadow(
                 wall=wall,
                 time=time,
                 vertices=vertices,
-                solar_elevation=45.0,
-                solar_azimuth=225.0  # Southwest
+                solar_elevation=elevation,
+                solar_azimuth=azimuth
             )
             shadows.append(shadow)
             

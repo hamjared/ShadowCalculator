@@ -2,6 +2,8 @@
 pint>=0.20.1         # Unit handling
 pyyaml>=6.0.1        # YAML file parsing
 geopy>=2.3.0         # Geocoding and location handling
+tqdm>=4.66.1         # Progress bars
+matplotlib>=3.7.1    # Plotting
 
 # Type checking
 typing-extensions>=4.7.1  # Enhanced type hints

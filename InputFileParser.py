@@ -1,6 +1,8 @@
-from typing import List, Dict, Any
+from typing import Dict, Any, List
 import yaml
 from DataModel import Wall, Location, WallParser, LocationParser
+from DataModel.TimeSpecification import TimeSpecification
+from DataModel.PlotConfig import PlotConfig
 
 class InputFileParser:
     """Parser for shadow calculator input files."""
@@ -36,6 +38,27 @@ class InputFileParser:
             raise ValueError(f"Error parsing location: {str(e)}")
     
     @classmethod
+    def parse_time_spec(cls, data: Dict[str, Any]) -> TimeSpecification:
+        """Parse time specification from input data."""
+        if 'time' not in data:
+            raise ValueError("No 'time' section found in input file")
+            
+        try:
+            return TimeSpecification.from_dict(data['time'])
+        except Exception as e:
+            raise ValueError(f"Error parsing time specification: {str(e)}")
+    
+    @classmethod
+    def parse_plot_config(cls, data: Dict[str, Any]) -> PlotConfig:
+        """Parse plot configuration from input data."""
+        try:
+            if 'plotConfig' in data:
+                return PlotConfig.from_dict(data['plotConfig'])
+            return PlotConfig()  # Return default config if not specified
+        except Exception as e:
+            raise ValueError(f"Error parsing plot configuration: {str(e)}")
+    
+    @classmethod
     def load_from_file(cls, file_path: str) -> Dict[str, Any]:
         """Load and parse data from a YAML file."""
         try:
@@ -48,10 +71,14 @@ class InputFileParser:
             # Parse required sections
             walls = cls.parse_walls(data)
             location = cls.parse_location(data)
+            time_spec = cls.parse_time_spec(data)
+            plot_config = cls.parse_plot_config(data)
             
             return {
                 'walls': walls,
                 'location': location,
+                'time_spec': time_spec,
+                'plot_config': plot_config,
                 'raw_data': data  # Include raw data for other sections
             }
             

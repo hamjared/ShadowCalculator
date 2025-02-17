@@ -1,0 +1,33 @@
+# Example input file with single time point
+
+# Location specification
+location:
+  latitude: 40.7128
+  longitude: -74.0060
+
+# Time specification - single point
+time:
+  point: "2025-02-17T14:30:00-07:00"  # Denver time
+
+# Wall definitions
+walls:
+  - name: "North Wall"
+    height: "10 feet"
+    start: ["0 feet", "0 feet"]
+    end: ["20 feet", "0 feet"]
+
+  - name: "East Wall"
+    height: "12 feet"
+    start: ["20 feet", "0 feet"]
+    end: ["20 feet", "15 feet"]
+
+# Plot configuration
+plotConfig:
+  enabled: true                    # Whether to generate plots
+  save_path: "shadows.png"        # Save to file instead of displaying
+  figure_size: [12, 8]            # Width and height in inches
+  show_compass: true              # Show compass directions
+  show_sun: true                  # Show sun position
+  show_dimensions: true           # Show wall and shadow dimensions
+  dpi: 300                        # DPI for saved plots
+  timezone: "America/New_York"    # Timezone for time display (optional, defaults to system timezone)

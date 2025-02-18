@@ -1,19 +1,24 @@
 # Core dependencies
 pint>=0.20.1         # Unit handling
+astral>=3.2          # Sun position calculations
+numpy>=1.24.0        # Mathematical calculations
+matplotlib>=3.7.1    # Plotting
+pytz>=2023.3         # Timezone handling
 pyyaml>=6.0.1        # YAML file parsing
 geopy>=2.3.0         # Geocoding and location handling
 tqdm>=4.66.1         # Progress bars
-matplotlib>=3.7.1    # Plotting
 
 # API dependencies
 fastapi>=0.95.0      # FastAPI framework
 uvicorn>=0.21.0      # ASGI server for running FastAPI
 python-multipart>=0.0.6  # For file uploads in FastAPI
+aiofiles>=23.1.0     # Async file operations
 
-# Type checking
+# Type checking and development
 typing-extensions>=4.7.1  # Enhanced type hints
-
-# Future dependencies (commented out until implemented)
-# matplotlib>=3.7.1    # For shadow visualization
-# numpy>=1.24.3       # For mathematical calculations
-# astral>=3.2         # For sun position calculations
+pytest>=7.0.0        # Testing framework
+pytest-cov>=4.0.0    # Test coverage
+black>=22.0.0        # Code formatting
+isort>=5.10.0        # Import sorting
+mypy>=1.0.0          # Static type checking
+line-profiler>=4.0.0 # Code profiling

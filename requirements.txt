@@ -5,6 +5,9 @@ geopy>=2.3.0         # Geocoding and location handling
 tqdm>=4.66.1         # Progress bars
 matplotlib>=3.7.1    # Plotting
 
+# API dependencies
+uvicorn>=0.21.0      # ASGI server for running FastAPI
+
 # Type checking
 typing-extensions>=4.7.1  # Enhanced type hints
 

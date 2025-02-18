@@ -1,394 +1,144 @@
-"""
-Input file parser for the shadow calculator.
-Handles loading and validating YAML input files.
-"""
-
-import yaml
 from typing import Dict, Any, List
-from pathlib import Path
-from datetime import datetime
-import re
-
-def print_debug(message: str) -> None:
-    print(f"DEBUG: {message}")
+import yaml
+from DataModel import Wall, Location, WallParser, LocationParser
+from DataModel.TimeSpecification import TimeSpecification
+from DataModel.PlotConfig import PlotConfig
+from DataModel.SunConfig import SunConfig
+from DataModel.AnimationConfig import AnimationConfig
+from DataModel.Area import Area
+from DataModel.AreaParser import AreaParser
 
 class InputFileParser:
     """Parser for shadow calculator input files."""
     
-    @staticmethod
-    def parse_time(time_str: str) -> datetime:
-        """
-        Parse time string into datetime object.
-        
-        Supports formats:
-        - HH:MM (e.g., "15:00")
-        - YYYY-MM-DD HH:MM (e.g., "2025-02-16 15:00")
-        - YYYY-MM-DDTHH:MM:SS-ZZ:ZZ (e.g., "2025-02-16T15:00:00-07:00")
-        
-        Args:
-            time_str: Time string to parse
+    @classmethod
+    def parse_walls(cls, data: Dict[str, Any]) -> List[Wall]:
+        """Parse all walls from input data."""
+        if 'walls' not in data:
+            raise ValueError("No 'walls' section found in input file")
             
-        Returns:
-            datetime object
+        if not isinstance(data['walls'], list):
+            raise ValueError("'walls' section must be a list")
             
-        Raises:
-            ValueError if time string is invalid
-        """
-        # Try ISO format first (YYYY-MM-DDTHH:MM:SS-ZZ:ZZ)
-        try:
-            return datetime.fromisoformat(time_str)
-        except ValueError:
-            pass
-            
-        # Try YYYY-MM-DD HH:MM format
-        try:
-            return datetime.strptime(time_str, "%Y-%m-%d %H:%M")
-        except ValueError:
-            pass
-            
-        # Try HH:MM format
-        try:
-            time_match = re.match(r"^(\d{1,2}):(\d{2})$", time_str)
-            if time_match:
-                hour, minute = map(int, time_match.groups())
-                if 0 <= hour <= 23 and 0 <= minute <= 59:
-                    # Use current date with specified time
-                    now = datetime.now()
-                    return now.replace(hour=hour, minute=minute)
-        except ValueError:
-            pass
-            
-        raise ValueError(
-            "Invalid time format. Supported formats:\n"
-            "- HH:MM (e.g., '15:00')\n"
-            "- YYYY-MM-DD HH:MM (e.g., '2025-02-16 15:00')\n"
-            "- YYYY-MM-DDTHH:MM:SS-ZZ:ZZ (e.g., '2025-02-16T15:00:00-07:00')"
-        )
-    
-    @staticmethod
-    def validate_wall_section(wall_data: Dict[str, Any]) -> None:
-        """
-        Validate the wall section of the input file.
-        
-        Args:
-            wall_data: Dictionary containing wall parameters
-            
-        Raises:
-            ValueError: If required parameters are missing
-        """
-        if not wall_data:
-            raise ValueError("Wall section is required")
-        
-        required_params = ['height', 'width']
-        for param in required_params:
-            if param not in wall_data:
-                raise ValueError(f"Missing required wall parameter: {param}")
-        
-        # Validate angle
-        if 'angle' in wall_data:
+        walls = []
+        for i, wall_data in enumerate(data['walls'], 1):
             try:
-                wall_data['angle'] = float(wall_data['angle'])
-            except (ValueError, TypeError):
-                raise ValueError(f"Invalid wall angle: {wall_data['angle']}")
-    
-    @staticmethod
-    def validate_time_section(time_data: Dict[str, Any]) -> None:
-        """
-        Validate the time section of the input file.
-        
-        Args:
-            time_data: Dictionary containing time parameters
-            
-        Raises:
-            ValueError: If time parameters are invalid
-        """
-        if not isinstance(time_data, dict):
-            raise ValueError("Time section must be a dictionary")
-            
-        # Validate start time format
-        if 'start' in time_data:
-            try:
-                InputFileParser.parse_time(time_data['start'])
-            except ValueError as e:
-                raise ValueError(f"Invalid start time: {e}")
-            
-        # Validate interval format if present
-        if 'interval' in time_data:
-            interval = str(time_data['interval'])
-            if not interval[-1] in ['m', 'h'] or not interval[:-1].isdigit():
-                raise ValueError(
-                    "Invalid interval format. Use:\n"
-                    "- <number>m for minutes (e.g., 30m)\n"
-                    "- <number>h for hours (e.g., 2h)"
-                )
-    
-    @staticmethod
-    def validate_visualization_section(viz_data: Dict[str, Any]) -> None:
-        """
-        Validate the visualization section of the input file.
-        
-        Args:
-            viz_data: Dictionary containing visualization parameters
-            
-        Raises:
-            ValueError: If visualization parameters are invalid
-        """
-        if not isinstance(viz_data, dict):
-            raise ValueError("Visualization section must be a dictionary")
-        
-        # Check that plot and animate are boolean
-        if 'plot' in viz_data and not isinstance(viz_data['plot'], bool):
-            raise ValueError("Visualization 'plot' must be a boolean")
-        if 'animate' in viz_data and not isinstance(viz_data['animate'], bool):
-            raise ValueError("Visualization 'animate' must be a boolean")
-        
-        # Check that save_animation is a string if present
-        if 'save_animation' in viz_data and not isinstance(viz_data['save_animation'], str):
-            raise ValueError("Visualization 'save_animation' must be a string")
+                wall = WallParser.parse(wall_data)
+                walls.append(wall)
+            except Exception as e:
+                raise ValueError(f"Error parsing wall {i}: {str(e)}")
+                
+        return walls
     
     @classmethod
-    def validate_areas_section(cls, areas: List[Dict[str, Any]]) -> None:
-        """
-        Validate the areas section of the input file.
-        
-        Args:
-            areas: List of area dictionaries from input file
+    def parse_areas(cls, data: Dict[str, Any]) -> List[Area]:
+        """Parse all areas from input data."""
+        if 'areas' not in data:
+            return []  # Areas are optional
             
-        Raises:
-            ValueError if validation fails
-        """
-        if not isinstance(areas, list):
-            raise ValueError("Areas section must be a list")
+        if not isinstance(data['areas'], list):
+            raise ValueError("'areas' section must be a list")
             
-        for area in areas:
-            if not isinstance(area, dict):
-                raise ValueError("Each area must be a dictionary")
+        areas = []
+        for i, area_data in enumerate(data['areas'], 1):
+            try:
+                area = AreaParser.parse(area_data)
+                areas.append(area)
+            except Exception as e:
+                raise ValueError(f"Error parsing area {i}: {str(e)}")
                 
-            required_fields = {'name', 'shape', 'center', 'width', 'height'}
-            if not all(field in area for field in required_fields):
-                raise ValueError(f"Area missing required fields: {required_fields}")
-                
-            if not isinstance(area['name'], str):
-                raise ValueError("Area name must be a string")
-                
-            if area['shape'] != 'rectangle':
-                raise ValueError("Only rectangle shape is currently supported")
-                
-            if not isinstance(area['center'], list) or len(area['center']) != 2:
-                raise ValueError("Area center must be [x, y] coordinates")
-                
+        return areas
+    
     @classmethod
-    def validate_input_file(cls, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Validate the input file data.
-        
-        Args:
-            input_data: Dictionary of input parameters
+    def parse_location(cls, data: Dict[str, Any]) -> Location:
+        """Parse location from input data."""
+        if 'location' not in data:
+            raise ValueError("No 'location' section found in input file")
             
-        Returns:
-            Dictionary of validated input parameters
+        try:
+            return LocationParser.parse(data['location'])
+        except Exception as e:
+            raise ValueError(f"Error parsing location: {str(e)}")
+    
+    @classmethod
+    def parse_time_spec(cls, data: Dict[str, Any]) -> TimeSpecification:
+        """Parse time specification from input data."""
+        if 'time' not in data:
+            raise ValueError("No 'time' section found in input file")
             
-        Raises:
-            ValueError: If the file is invalid or missing required parameters
-        """
-        if not isinstance(input_data, dict):
-            raise ValueError("Input file must be a dictionary")
-        
-        # Validate wall section
-        if 'wall' not in input_data:
-            raise ValueError("Input file must contain 'wall' section")
-        cls.validate_wall_section(input_data['wall'])
-        
-        # Validate time section if present
-        if 'time' in input_data:
-            cls.validate_time_section(input_data['time'])
-        
-        # Validate visualization section if present
-        if 'visualization' in input_data:
-            cls.validate_visualization_section(input_data['visualization'])
-            # Ensure plot is a boolean
-            if 'plot' in input_data['visualization']:
-                input_data['visualization']['plot'] = bool(input_data['visualization']['plot'])
-        
-        # Validate areas section if present
-        if 'areas' in input_data:
-            cls.validate_areas_section(input_data['areas'])
-        
-        return input_data
+        try:
+            return TimeSpecification.from_dict(data['time'])
+        except Exception as e:
+            raise ValueError(f"Error parsing time specification: {str(e)}")
+    
+    @classmethod
+    def parse_plot_config(cls, data: Dict[str, Any]) -> PlotConfig:
+        """Parse plot configuration from input data."""
+        try:
+            if 'plotConfig' in data:
+                return PlotConfig.from_dict(data['plotConfig'])
+            return PlotConfig()  # Return default config if not specified
+        except Exception as e:
+            raise ValueError(f"Error parsing plot configuration: {str(e)}")
+    
+    @classmethod
+    def parse_sun_config(cls, data: Dict[str, Any]) -> SunConfig:
+        """Parse sun configuration from input data."""
+        try:
+            if 'sunConfig' in data:
+                return SunConfig.from_dict(data['sunConfig'])
+            return SunConfig()  # Return default config if not specified
+        except Exception as e:
+            raise ValueError(f"Error parsing sun configuration: {str(e)}")
+    
+    @classmethod
+    def parse_animation_config(cls, data: Dict[str, Any]) -> AnimationConfig:
+        """Parse animation configuration from input data."""
+        try:
+            if 'animationConfig' in data:
+                return AnimationConfig.from_dict(data['animationConfig'])
+            return AnimationConfig()  # Return default config if not specified
+        except Exception as e:
+            raise ValueError(f"Error parsing animation configuration: {str(e)}")
     
     @classmethod
     def load_from_file(cls, file_path: str) -> Dict[str, Any]:
-        """
-        Load input parameters from a YAML file.
-        
-        Args:
-            file_path: Path to YAML file
-            
-        Returns:
-            Dictionary of input parameters
-            
-        Raises:
-            ValueError: If the file cannot be parsed
-        """
+        """Load and parse data from a YAML file."""
         try:
             with open(file_path, 'r') as f:
-                content = f.read()
-                print_debug(f"Raw file content:\n{content}")
-                input_data = yaml.safe_load(content)
-                print_debug(f"Parsed YAML:\n{input_data}")
-                if not isinstance(input_data, dict):
-                    raise ValueError("Invalid YAML: root must be a dictionary")
-                return cls.validate_input_file(input_data)
+                data = yaml.safe_load(f)
+                
+            if not isinstance(data, dict):
+                raise ValueError("Input file must be a dictionary")
+                
+            # Parse required sections
+            walls = cls.parse_walls(data)
+            areas = cls.parse_areas(data)
+            location = cls.parse_location(data)
+            time_spec = cls.parse_time_spec(data)
+            plot_config = cls.parse_plot_config(data)
+            sun_config = cls.parse_sun_config(data)
+            animation_config = cls.parse_animation_config(data)
+            
+            return {
+                'walls': walls,
+                'areas': areas,
+                'location': location,
+                'time_spec': time_spec,
+                'plot_config': plot_config,
+                'sun_config': sun_config,
+                'animation_config': animation_config,
+                'raw_data': data  # Include raw data for other sections
+            }
+            
         except yaml.YAMLError as e:
             raise ValueError(f"Error parsing YAML file: {e}")
         except FileNotFoundError:
             raise ValueError(f"File not found: {file_path}")
         except Exception as e:
             raise ValueError(f"Error reading file: {e}")
-    
-    @classmethod
-    def convert_to_args(cls, input_data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Convert input file data to argument format.
-        
-        Args:
-            input_data: Dictionary of input parameters
             
-        Returns:
-            Dictionary of arguments
-        """
-        print_debug(f"Converting input data to args: {input_data}")
-        args = {}
-        wall = input_data['wall']
-        
-        # Convert wall parameters
-        args['height'] = str(wall.get('height', ''))
-        args['width'] = str(wall.get('width', ''))
-        args['wall_angle'] = float(wall.get('angle', 0))  # Convert angle to float
-        
-        # Convert location
-        args['location'] = str(input_data.get('location', ''))
-        
-        # Convert time parameters
-        if 'time' in input_data:
-            time = input_data['time']
-            args['start_time'] = str(time.get('start', ''))
-            args['end_time'] = str(time.get('end', ''))
-            args['interval'] = str(time.get('interval', '30m'))
-        
-        # Convert visualization parameters
-        if 'visualization' in input_data:
-            print_debug(f"Found visualization section: {input_data['visualization']}")
-            vis = input_data['visualization']
-            args['plot'] = True if vis.get('plot', False) else False
-            args['animate'] = True if vis.get('animate', False) else False
-            args['save_animation'] = str(vis.get('save_animation', ''))
-            print_debug(f"Visualization settings: {vis}")
-            print_debug(f"Plot flag: {args['plot']}")
-        
-        print_debug(f"Final args: {args}")
-        return args
-    
     @classmethod
     def parse_file(cls, file_path: str) -> Dict[str, Any]:
-        """
-        Parse a YAML input file.
-        
-        Args:
-            file_path: Path to YAML input file
-            
-        Returns:
-            Dictionary of validated input parameters
-        """
-        # First load and validate the raw input
-        input_data = cls.load_from_file(file_path)
-        
-        # Convert to args format
-        args = cls.convert_to_args(input_data)
-        
-        # Preserve the raw input data for sections that don't map to args
-        args['raw_input'] = input_data
-        
-        print_debug(f"Final parsed data: {args}")
-        return args
-    
-    @staticmethod
-    def get_areas_from_input_file(file_path: str) -> List[Dict[str, Any]]:
-        """
-        Get areas from input file.
-        
-        Args:
-            file_path: Path to input file
-            
-        Returns:
-            List of area dictionaries
-        """
-        try:
-            with open(file_path, 'r') as f:
-                data = yaml.safe_load(f)
-            
-            if not data or 'areas' not in data:
-                print_debug("No areas found in input file")
-                return []
-                
-            areas = []
-            for area in data['areas']:
-                if not isinstance(area, dict):
-                    print_debug(f"Skipping invalid area: {area}")
-                    continue
-                    
-                required_fields = ['name', 'shape', 'center', 'width', 'height']
-                if not all(field in area for field in required_fields):
-                    print_debug(f"Area missing required fields: {area}")
-                    continue
-                    
-                # Convert area to meters if units are specified
-                try:
-                    center = area['center']
-                    if isinstance(center[0], str):
-                        center_x = float(center[0].split()[0])
-                        if len(center[0].split()) > 1 and center[0].split()[1].lower() == 'feet':
-                            center_x *= 0.3048
-                    else:
-                        center_x = float(center[0])
-                        
-                    if isinstance(center[1], str):
-                        center_y = float(center[1].split()[0])
-                        if len(center[1].split()) > 1 and center[1].split()[1].lower() == 'feet':
-                            center_y *= 0.3048
-                    else:
-                        center_y = float(center[1])
-                        
-                    width = area['width']
-                    if isinstance(width, str):
-                        width_val = float(width.split()[0])
-                        if len(width.split()) > 1 and width.split()[1].lower() == 'feet':
-                            width_val *= 0.3048
-                    else:
-                        width_val = float(width)
-                        
-                    height = area['height']
-                    if isinstance(height, str):
-                        height_val = float(height.split()[0])
-                        if len(height.split()) > 1 and height.split()[1].lower() == 'feet':
-                            height_val *= 0.3048
-                    else:
-                        height_val = float(height)
-                        
-                    areas.append({
-                        'name': area['name'],
-                        'shape': area['shape'],
-                        'center': [center_x, center_y],
-                        'width': width_val,
-                        'height': height_val,
-                        'angle': float(area.get('angle', 0))
-                    })
-                except (ValueError, IndexError) as e:
-                    print_debug(f"Error parsing area {area['name']}: {e}")
-                    continue
-                    
-            return areas
-            
-        except Exception as e:
-            print_debug(f"Error reading areas from file: {e}")
-            return []
+        """Alias for load_from_file for consistency with other parsers."""
+        return cls.load_from_file(file_path)

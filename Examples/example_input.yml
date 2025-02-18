@@ -1,0 +1,28 @@
+# Example input file for shadow calculator
+
+# Location specification
+location:
+  latitude: 40.7128
+  longitude: -74.0060
+
+# Time specification - use either point or range
+time:
+  # Option 1: Single point in time
+  point: "2025-02-17T14:30:00-07:00"
+  
+  # Option 2: Time range (uncomment and comment out point)
+  # start: "2025-02-17T08:00:00-07:00"
+  # end: "2025-02-17T16:00:00-07:00"
+  # interval: "1h"  # Format: <number>m for minutes, <number>h for hours
+
+# Wall definitions
+walls:
+  - name: "North Wall"
+    height: "10 feet"
+    start: ["0 feet", "0 feet"]    # [x, y] coordinates
+    end: ["20 feet", "0 feet"]     # [x, y] coordinates
+
+  - name: "East Wall"
+    height: "12 feet"
+    start: ["20 feet", "0 feet"]   # [x, y] coordinates
+    end: ["20 feet", "15 feet"]    # [x, y] coordinates
